@@ -1,0 +1,233 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+{% load l10n %}
+
+{% block title %}Minha Carteira - Rovema{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* KPIs de Meta */
+    .kpi-progress h3 { margin: 0 0 10px 0; }
+    .progress-bar {
+        width: 100%;
+        background-color: var(--bs-light);
+        border-radius: 10px;
+        height: 20px;
+        overflow: hidden;
+    }
+    .progress-bar-inner {
+        height: 100%;
+        background-color: var(--bs-primary);
+        width: {% if kpi_percentual_meta > 100 %}100{% else %}{{ kpi_percentual_meta }}{% endif %}%;
+        border-radius: 10px;
+        transition: width 0.5s ease;
+    }
+    .kpi-progress p {
+        font-weight: 600;
+        margin: 10px 0 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" action="{% url 'minha_carteira' %}" class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label for="start_date" class="form-label fw-bold">Data Inicial:</label>
+                    <input type="date" id="start_date" name="start_date" value="{{ current_start_date }}" class="form-control">
+                </div>
+                <div class="col-md-4">
+                    <label for="end_date" class="form-label fw-bold">Data Final:</label>
+                    <input type="date" id="end_date" name="end_date" value="{{ current_end_date }}" class="form-control">
+                </div>
+                <div class="col-md-auto">
+                    <button type="submit" class="btn btn-primary w-100">Aplicar Filtros</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <h1>{% if user.role == "manager" %}Performance da Equipa{% else %}Minha Carteira{% endif %}</h1>
+        <p class="lead text-muted">Exibindo performance de {{ start_date_display }} até {{ end_date_display }}</p>
+    </div>
+
+    <div class="row">
+        <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card shadow-sm h-100 kpi-card" title="Receita Líquida (Lucro) gerada no período selecionado.">
+                <div class="card-body">
+                    <h6 class="text-uppercase text-muted small">Receita Líquida (Período)</h6>
+                    <span class="h2 fw-bold">R$ {{ kpi_revenue_net|localize }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card shadow-sm h-100 kpi-card" title="Número de clientes únicos que fizeram pelo menos uma compra no período.">
+                <div class="card-body">
+                    <h6 class="text-uppercase text-muted small">Clientes Ativados (Período)</h6>
+                    <span class="h2 fw-bold">{{ kpi_clients_activated|localize }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card shadow-sm h-100 kpi-card" title="Número total de clientes na sua carteira (ou da sua equipa).">
+                <div class="card-body">
+                    <h6 class="text-uppercase text-muted small">Total na Carteira</h6>
+                    <span class="h2 fw-bold">{{ kpi_total_clients|localize }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="{% if user.role == "manager" %}col-lg-5{% else %}col-lg-12{% endif %} mb-4">
+            <div class="card shadow-sm kpi-progress h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Meta ({{ meta_date_object|date:"F"|capfirst }} / {{ meta_date_object.year }})</h5>
+                    <div class="progress-bar">
+                        <div class="progress-bar-inner" style="width: {% if kpi_percentual_meta > 100 %}100{% else %}{{ kpi_percentual_meta }}{% endif %}%;"></div>
+                    </div>
+                    <p class="h5 mt-2">
+                        R$ {{ kpi_revenue_mes|localize }} de R$ {{ kpi_meta_mes|localize }}
+                        <span class="text-muted h6">({{ kpi_percentual_meta|floatformat:1 }}%)</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        {% if user.role == "manager" %}
+        <div class="col-lg-7 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Performance da Equipa ({{ meta_date_object|date:"F"|capfirst }} / {{ meta_date_object.year }})</h5>
+                    <div class="table-responsive">
+                        <table class="table table-hover interactive-datatable">
+                            <thead>
+                                <tr>
+                                    <th>Consultor</th>
+                                    <th>Meta</th>
+                                    <th>Realizado</th>
+                                    <th class="text-end">% Atingido</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for consultor in performance_equipa %}
+                                <tr>
+                                    <td>{{ consultor.first_name }} {{ consultor.last_name }}</td>
+                                    <td>R$ {{ consultor.goal_month|localize }}</td>
+                                    <td>R$ {{ consultor.revenue_month|localize }}</td>
+                                    <td class="text-end fw-bold">{{ consultor.percent_atingido|floatformat:1 }}%</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="4" class="text-center text-muted">Nenhum consultor na sua equipa.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="row">
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Receita Líquida (Últimos 12 Meses)</h5>
+                    <div id="lineChart" style="width: 100%; height: 350px;"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Performance por Cliente (no período)</h5>
+                    <div class="table-responsive">
+                        <table class="table table-hover interactive-datatable">
+                            <thead>
+                                <tr>
+                                    <th>Cliente</th>
+                                    <th>CNPJ</th>
+                                    <th class="text-end">Receita no Período</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for cliente in clientes_performance %}
+                                <tr>
+                                    <td>{{ cliente.client_name }}</td>
+                                    <td>{{ cliente.cnpj }}</td>
+                                    <td class="text-end fw-bold">R$ {{ cliente.revenue_periodo|localize }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="3" class="text-center text-muted">Nenhum cliente encontrado.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
+
+<script>
+    var lineChartData = JSON.parse('{{ line_chart_json|safe }}');
+    am5.ready(function() {
+        var root = am5.Root.new("lineChart");
+        root.setThemes([ am5themes_Animated.new(root) ]);
+        root.numberFormatter.set("numberFormat", "R$ #,###.00");
+        var chart = root.container.children.push(am5xy.XYChart.new(root, {
+            panX: false, panY: false, wheelX: "none", wheelY: "none"
+        }));
+        var cursor = chart.set("cursor", am5xy.XYCursor.new(root, {}));
+        cursor.lineY.set("visible", false);
+        var xAxis = chart.xAxes.push(am5xy.DateAxis.new(root, {
+            baseInterval: { timeUnit: "month", count: 1 },
+            renderer: am5xy.AxisRendererX.new(root, {}),
+            tooltip: am5.Tooltip.new(root, {})
+        }));
+        var yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
+            renderer: am5xy.AxisRendererY.new(root, {}),
+            tooltip: am5.Tooltip.new(root, {})
+        }));
+        var series = chart.series.push(am5xy.LineSeries.new(root, {
+            name: "Receita", xAxis: xAxis, yAxis: yAxis,
+            valueYField: "revenue", valueXField: "date",
+            tooltip: am5.Tooltip.new(root, { labelText: "{valueY}" })
+        }));
+        series.strokes.template.setAll({
+            strokeColor: am5.color(0x0068C9), strokeWidth: 3
+        });
+        series.fills.template.setAll({
+            fillOpacity: 0.1, visible: true,
+            fillPattern: am5.LinearGradient.new(root, {
+                stops: [
+                    { color: am5.color(0x0068C9), opacity: 0.5 },
+                    { color: am5.color(0x0068C9), opacity: 0 }
+                ],
+                rotation: 90
+            })
+        });
+        series.data.processor = am5.DataProcessor.new(root, {
+            dateFields: ["date"], dateFormat: "yyyy-MM-dd"
+        });
+        series.bullets.push(function() {
+            return am5.Bullet.new(root, {
+                sprite: am5.Circle.new(root, {
+                    radius: 5, fill: series.get("fill"),
+                    stroke: root.interfaceColors.get("background"), strokeWidth: 2
+                })
+            });
+        });
+        series.data.setAll(lineChartData);
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,165 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+{% load l10n %}
+
+{% block title %}Carga de Dados - Rovema{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+    @media (max-width: 992px) {
+        .form-grid {
+            grid-template-columns: 1fr; /* Fica 1 coluna em ecrãs menores */
+        }
+    }
+    .form-group { display: flex; flex-direction: column; margin-bottom: 15px; }
+    .form-group label { font-weight: 600; color: var(--bs-body-color); margin-bottom: 8px; }
+    .form-group input, .form-group select {
+        font-family: inherit; font-size: 1em; padding: 10px;
+        border: 1px solid #ccc; border-radius: 6px;
+    }
+    .form-group input[type="file"] { padding: 5px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h1 class="h3 mb-0">Carga de Dados</h1>
+                <p class="text-muted mb-0">Inicie a importação de ficheiros CSV ou a sincronização de APIs.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow-sm h-100">
+            <form method="POST" enctype="multipart/form-data" class="form-processing">
+                {% csrf_token %}
+                <div class="card-body">
+                    <h5 class="card-title">Upload de Ficheiro CSV</h5>
+                    <hr>
+                    <div class="mb-3">
+                        <label for="file_type" class="form-label fw-bold">1. Selecione o Produto:</label>
+                        <select name="file_type" id="file_type" class="form-select" required>
+                            <option value="">Selecione...</option>
+                            <option value="bionio">Bionio</option>
+                            <option value="rovema">Rovema Pay</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="csv_file" class="form-label fw-bold">2. Selecione o Ficheiro (.csv):</label>
+                        <input type="file" name="csv_file" id="csv_file" class="form-control" accept=".csv" required>
+                    </div>
+                </div>
+                <div class="card-footer bg-light text-end">
+                    <button type="submit" name="upload_csv" class="btn btn-primary form-processing-button">
+                        Iniciar Upload
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow-sm h-100">
+            <form method="POST" class="form-processing">
+                {% csrf_token %}
+                <div class="card-body">
+                    <h5 class="card-title">Sincronização via API</h5>
+                    <hr>
+                    <div class="mb-3">
+                        <label for="api_type" class="form-label fw-bold">1. Selecione a API:</label>
+                        <select name="api_type" id="api_type" class="form-select" required>
+                            <option value="eliq">ELIQ (Uzzipay)</option>
+                            <option value="asto">ASTO (Logpay)</option>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="api_start_date" class="form-label fw-bold">2. Data Inicial:</label>
+                            <input type="date" name="api_start_date" id="api_start_date" value="{{ default_start_date }}" class="form-control" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="api_end_date" class="form-label fw-bold">3. Data Final:</label>
+                            <input type="date" name="api_end_date" id="api_end_date" value="{{ default_end_date }}" class="form-control" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-light text-end">
+                    <button type="submit" name="sync_api" class="btn btn-primary form-processing-button">
+                        Sincronizar API
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Histórico Recente de Importações</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>Data/Hora</th>
+                                <th>Utilizador</th>
+                                <th>Status</th>
+                                <th>Detalhes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in logs %}
+                            <tr>
+                                <td>{{ log.timestamp|date:"d/m/Y H:i:s" }}</td>
+                                <td>{{ log.user.email|default:"Sistema" }}</td>
+                                <td>
+                                    {% if log.action == "inicio_carga_api" or log.action == "inicio_carga_csv" %}
+                                        <span class="badge bg-warning text-dark">
+                                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                            Iniciada
+                                        </span>
+                                    {% elif log.action == "fim_carga_api" or log.action == "fim_carga_csv" %}
+                                        <span class="badge bg-success">Concluída</span>
+                                    {% elif log.action == "falha_carga_api" or log.action == "falha_carga_csv" %}
+                                        <span class="badge bg-danger">Falha</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ log.action }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if log.details.status == "Sucesso" %}
+                                        {{ log.details.file_type|default:log.details.api_type|upper }} - 
+                                        {{ log.details.rows_saved|localize }} registos salvos.
+                                    {% elif log.details.status == "Falha" %}
+                                        {{ log.details.file_type|default:log.details.api_type|upper }} - 
+                                        Erro: {{ log.details.error|truncatechars:100 }}
+                                    {% else %}
+                                        {{ log.details.file_type|default:log.details.api_type|upper }} 
+                                        ({{ log.details.filename|default:log.details.start_date }})
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted p-4">Nenhuma importação registada ainda.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

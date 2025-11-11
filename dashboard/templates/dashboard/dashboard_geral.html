@@ -1,0 +1,253 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+{% load l10n %} {% block title %}Dashboard Geral - Rovema{% endblock %}
+
+{% block content %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" action="{% url 'dashboard_geral' %}">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md">
+                        <label for="start_date" class="form-label fw-bold">Data Inicial:</label>
+                        <input type="date" id="start_date" name="start_date" value="{{ current_start_date }}" class="form-control">
+                    </div>
+                    <div class="col-md">
+                        <label for="end_date" class="form-label fw-bold">Data Final:</label>
+                        <input type="date" id="end_date" name="end_date" value="{{ current_end_date }}" class="form-control">
+                    </div>
+                    
+                    <div class="col-md">
+                        <label for="products" class="form-label fw-bold">Produto:</label>
+                        <select id="products" name="products" class="tom-select-multiple" multiple>
+                            {% for product in all_products %}
+                            <option value="{{ product }}" {% if product in selected_products %}selected{% endif %}>
+                                {{ product }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    {% if user.role == "admin" or user.role == "manager" %}
+                    <div class="col-md">
+                        <label for="consultants" class="form-label fw-bold">Consultor:</label>
+                        <select id="consultants" name="consultants" class="tom-select-multiple" multiple>
+                            {% for consultant in all_consultants %}
+                            <option value="{{ consultant.id }}" {% if consultant.id in selected_consultants %}selected{% endif %}>
+                                {{ consultant.first_name }} {{ consultant.last_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="col-md-auto">
+                        <button type="submit" class="btn btn-primary w-100">Aplicar Filtros</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <h1>Dashboard Geral</h1>
+        <p class="lead text-muted">Exibindo dados de {{ start_date_display }} até {{ end_date_display }} (KPIs) e tendência dos últimos 12 meses.</p>
+    </div>
+
+    <div class="row">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card shadow-sm h-100 kpi-card" title="Volume Total Transacionado (Bruto) por todos os clientes no período.">
+                <div class="card-body">
+                    <h6 class="text-uppercase text-muted small">Volume Total (TPV)</h6>
+                    <span class="h2 fw-bold">R$ {{ kpi_tpv|localize }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card shadow-sm h-100 kpi-card" title="Receita Líquida (Lucro) gerada para a Rovema no período.">
+                <div class="card-body">
+                    <h6 class="text-uppercase text-muted small">Receita Líquida (Lucro)</h6>
+                    <span class="h2 fw-bold">R$ {{ kpi_net|localize }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card shadow-sm h-100 kpi-card" title="Percentagem média da Receita Líquida sobre o TPV (Lucro / TPV).">
+                <div class="card-body">
+                    <h6 class="text-uppercase text-muted small">Margem Média</h6>
+                    <span class="h2 fw-bold">{{ kpi_margin|floatformat:2 }}%</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card shadow-sm h-100 kpi-card" title="Número total de transações (vendas) individuais no período.">
+                <div class="card-body">
+                    <h6 class="text-uppercase text-muted small">Total de Vendas</h6>
+                    <span class="h2 fw-bold">{{ kpi_total_sales|localize }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Lucro por Produto (Período)</h5>
+                    <div id="pieChart" style="width: 100%; height: 400px;"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="card-title">TPV (Últimos 12 Meses)</h5>
+                    <div id="lineChart" style="width: 100%; height: 400px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Clientes (Maior TPV)</h5>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr><th>Cliente</th><th class="text-end">Volume (R$)</th></tr>
+                            </thead>
+                            <tbody>
+                                {% for client in top_5_clients %}
+                                <tr>
+                                    <td>{{ client.raw_client_name }}</td>
+                                    <td class="text-end fw-bold">{{ client.total_tpv|localize }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="2" class="text-center text-muted">Nenhum dado.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Clientes (Menor TPV)</h5>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr><th>Cliente</th><th class="text-end">Volume (R$)</th></tr>
+                            </thead>
+                            <tbody>
+                                {% for client in bottom_5_clients %}
+                                <tr>
+                                    <td>{{ client.raw_client_name }}</td>
+                                    <td class="text-end fw-bold">{{ client.total_tpv|localize }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="2" class="text-center text-muted">Nenhum dado.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/percent.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
+
+<script>
+    var pieChartData = JSON.parse('{{ pie_chart_json|safe }}');
+    am5.ready(function() {
+        var root = am5.Root.new("pieChart");
+        root.setThemes([ am5themes_Animated.new(root) ]);
+        var chart = root.container.children.push(
+            am5percent.PieChart.new(root, { layout: root.verticalLayout, innerRadius: am5.percent(50) })
+        );
+        var series = chart.series.push(
+            am5percent.PieSeries.new(root, { valueField: "revenue", categoryField: "source", alignLabels: true })
+        );
+        if (pieChartData.length === 0) {
+            series.data.setAll([]);
+            chart.seriesContainer.children.push(am5.Label.new(root, {
+                text: "Nenhum dado.", centerX: am5.p50, centerY: am5.p50,
+                fontSize: 18, fill: am5.color(0x888888)
+            }));
+        } else { series.data.setAll(pieChartData); }
+        series.labels().template.setAll({
+            textType: "circular", radius: 4,
+            text: "{category}: {valuePercentTotal.formatNumber('0.0')}%"
+        });
+        series.ticks().template.set("forceHidden", true); 
+        var legend = chart.children.push(am5.Legend.new(root, {
+            centerX: am5.percent(50), x: am5.percent(50),
+            marginTop: 15, marginBottom: 15
+        }));
+        legend.data.setAll(series.dataItems);
+    });
+</script>
+
+<script>
+    var lineChartData = JSON.parse('{{ line_chart_json|safe }}');
+    am5.ready(function() {
+        var root = am5.Root.new("lineChart");
+        root.setThemes([ am5themes_Animated.new(root) ]);
+        root.numberFormatter.set("numberFormat", "R$ #,###.00");
+        var chart = root.container.children.push(am5xy.XYChart.new(root, {
+            panX: false, panY: false, wheelX: "none", wheelY: "none"
+        }));
+        var cursor = chart.set("cursor", am5xy.XYCursor.new(root, {}));
+        cursor.lineY.set("visible", false);
+        var xAxis = chart.xAxes.push(am5xy.DateAxis.new(root, {
+            baseInterval: { timeUnit: "month", count: 1 },
+            renderer: am5xy.AxisRendererX.new(root, {}),
+            tooltip: am5.Tooltip.new(root, {})
+        }));
+        var yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
+            renderer: am5xy.AxisRendererY.new(root, {}),
+            tooltip: am5.Tooltip.new(root, {})
+        }));
+        var series = chart.series.push(am5xy.LineSeries.new(root, {
+            name: "TPV", xAxis: xAxis, yAxis: yAxis,
+            valueYField: "volume", valueXField: "date",
+            tooltip: am5.Tooltip.new(root, { labelText: "{valueY}" })
+        }));
+        series.strokes.template.setAll({
+            strokeColor: am5.color(0x0068C9), strokeWidth: 3
+        });
+        series.fills.template.setAll({
+            fillOpacity: 0.1, visible: true,
+            fillPattern: am5.LinearGradient.new(root, {
+                stops: [
+                    { color: am5.color(0x0068C9), opacity: 0.5 },
+                    { color: am5.color(0x0068C9), opacity: 0 }
+                ],
+                rotation: 90
+            })
+        });
+        series.data.processor = am5.DataProcessor.new(root, {
+            dateFields: ["date"], dateFormat: "yyyy-MM-dd"
+        });
+        series.bullets.push(function() {
+            return am5.Bullet.new(root, {
+                sprite: am5.Circle.new(root, {
+                    radius: 5, fill: series.get("fill"),
+                    stroke: root.interfaceColors.get("background"), strokeWidth: 2
+                })
+            });
+        });
+        series.data.setAll(lineChartData);
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,113 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+{% load l10n %}
+
+{% block title %}Gestão de Metas - Rovema{% endblock %}
+
+{% block extra_css %}
+<style>
+    .meta-input {
+        width: 150px;
+        text-align: right;
+    }
+    .action-cell {
+        /* Garante que o input e o botão fiquem na mesma célula */
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label for="month" class="form-label fw-bold">Mês</label>
+                    <select name="month" id="month" class="form-select">
+                        {% for i, name in month_range %}
+                        <option value="{{ i }}" {% if i == selected_month_str %}selected{% endif %}>{{ name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="year" class="form-label fw-bold">Ano</label>
+                    <select name="year" id="year" class="form-select">
+                        {% for y in year_range %}
+                        <option value="{{ y }}" {% if y == selected_year_str %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-auto">
+                    <button type="submit" class="btn btn-primary">Carregar Metas</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="mb-3">
+                <h1 class="h3 mb-0">Gestão de Metas</h1>
+                <p class="text-muted mb-0">A definir metas para: <strong>{{ selected_month_int|date:"F"|capfirst }} / {{ selected_year_int }}</strong></p>
+            </div>
+            
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="month" value="{{ selected_month_str }}">
+                <input type="hidden" name="year" value="{{ selected_year_str }}">
+                
+                <div class="table-responsive">
+                    <table class="table table-hover interactive-datatable" style="width:100%">
+                        <thead>
+                            <tr>
+                                <th>Consultor</th>
+                                <th>Email</th>
+                                <th class="text-end">Meta de Receita (R$) / Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for data in consultant_data %}
+                            <tr>
+                                <td>{{ data.consultant.first_name }} {{ data.consultant.last_name }}</td>
+                                <td>{{ data.consultant.email }}</td>
+                                <td class="text-end">
+                                    <div class="action-cell">
+                                        <input 
+                                            type="number" 
+                                            step="0.01" 
+                                            class="form-control form-control-sm meta-input d-inline-block"
+                                            name="meta_{{ data.consultant.id }}" 
+                                            value="{{ data.meta|floatformat:2 }}"
+                                            placeholder="0.00"
+                                        >
+                                        {% if data.goal_id %}
+                                        <a href="{% url 'eliminar_meta' data.goal_id %}" class="btn btn-sm btn-outline-danger" title="Eliminar esta meta"
+                                           onclick="return confirm('Tem a certeza de que quer eliminar esta meta?');">
+                                            X
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center text-muted p-4">
+                                    Nenhum consultor encontrado.
+                                    {% if user.role == "manager" %} (Verifique se há consultores na sua equipa).{% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="text-end mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg">Salvar Todas as Metas</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}

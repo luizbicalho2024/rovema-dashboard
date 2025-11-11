@@ -1,0 +1,21 @@
+# Ambiente Virtual (MUITO IMPORTANTE)
+venv/
+
+# Ficheiros de Segredos (O MAIS IMPORTANTE)
+# Contém as suas senhas de BD e tokens de API
+config/settings.py
+
+# Ficheiros temporários de Python
+__pycache__/
+*.pyc
+
+# Ficheiros temporários de Uploads (da sua view carga_dados)
+media/tmp/
+
+# Ficheiros de Base de Dados local (boa prática)
+*.sqlite3
+
+# Ficheiros de IDE/OS
+.vscode/
+.idea/
+.DS_Store
