@@ -1,61 +1,144 @@
 {% load static %}
 {% load l10n %}
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-br"> 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Dashboard Rovema{% endblock %}</title>
     
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <script>
+        (function() {
+            const storedTheme = localStorage.getItem('theme');
+            const osPreference = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            const theme = storedTheme || osPreference;
+            document.documentElement.setAttribute('data-bs-theme', theme);
+        })();
+    </script>
     
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.css">
     
     <link href="https://cdn.datatables.net/v/bs5/dt-2.1.2/datatables.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/3.0.2/css/buttons.bootstrap5.min.css">
     
     <style>
-        /* Define as cores Rovema como variáveis CSS do Bootstrap */
-        :root {
-            --bs-primary: #0068C9; /* Cor principal Rovema */
-            --bs-primary-rgb: 0, 104, 201;
+        /* Tema Light (Default) */
+        :root, [data-bs-theme="light"] {
+            --bs-primary: #0068C9;
             --bs-link-color: #0068C9;
             --bs-body-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            --bs-body-bg: #F0F2F6; /* Fundo Rovema */
+            --bs-body-bg: #F0F2F6;
         }
         
-        /* Ajusta a fonte do Tom Select */
-        .ts-wrapper {
-            font-family: var(--bs-body-font-family);
-        }
+        /* Tema Dark (Overrides Completos e Corrigidos) */
+        [data-bs-theme="dark"] {
+            /* Cores Globais */
+            --bs-primary: #0a84ff;
+            --bs-link-color: #0a84ff;
+            --bs-body-bg: #1a1a1a;
+            --bs-body-color: #dee2e6;       /* Cor do texto principal */
+            --bs-border-color: #495057;
+            --bs-heading-color: #ffffff;    /* Cor para h1, h2, etc. */
+            --bs-tertiary-color: #adb5bd;  /* Cor para texto "muted" */
 
-        /* (Melhoria 4) Efeito de Hover para os cartões (KPIs) */
+            /* Componentes */
+            --bs-card-bg: #2b2b2b;
+            --bs-dropdown-bg: #2b2b2b;
+            --bs-dropdown-link-color: #dee2e6;
+            --bs-dropdown-link-hover-bg: #3b3b3b;
+            --bs-dropdown-link-hover-color: #ffffff;
+            
+            /* (CORREÇÃO 1) Formulários (Filtros) */
+            --bs-form-control-bg: #3b3b3b;
+            --bs-form-control-color: var(--bs-body-color);
+            --bs-form-select-bg: #3b3b3b;
+            --bs-form-select-color: var(--bs-body-color);
+            --bs-form-control-disabled-bg: #495057;
+            --bs-form-label-color: var(--bs-body-color);
+            .form-control::placeholder { color: #6c757d; }
+            .form-control:focus {
+                background-color: #3b3b3b;
+                color: var(--bs-body-color);
+            }
+            
+            /* (CORREÇÃO 2) Forçar Cor em Títulos e Textos */
+            .text-dark { color: var(--bs-body-color) !important; }
+            .text-muted { color: var(--bs-tertiary-color) !important; }
+            .h1, .h2, .h3, .h4, .h5, .h6,
+            h1, h2, h3, h4, h5, h6,
+            .card-title, .lead {
+                color: var(--bs-heading-color) !important;
+            }
+            span.h2 { /* O valor do KPI */
+                color: var(--bs-heading-color) !important;
+            }
+            
+            /* (CORREÇÃO 3) Tabelas (DataTables e tabelas simples) */
+            --bs-table-color: var(--bs-body-color);
+            --bs-table-bg: #2b2b2b;
+            --bs-table-striped-bg: #343a40;
+            --bs-table-hover-bg: #3c4248;
+            --bs-table-border-color: var(--bs-border-color);
+            --bs-table-header-color: var(--bs-heading-color); /* Para thead */
+            
+            /* Controles do DataTables */
+            .dataTables_wrapper, .dataTables_info, .dataTables_length label, .dataTables_filter label {
+                color: var(--bs-body-color) !important;
+            }
+            .page-link {
+                background-color: #3b3b3b;
+                border-color: var(--bs-border-color);
+                color: var(--bs-link-color);
+            }
+            .page-link.disabled, .page-item.disabled .page-link {
+                color: #6c757d;
+                background-color: #2b2b2b;
+            }
+            .page-item.active .page-link {
+                background-color: var(--bs-primary);
+                border-color: var(--bs-primary);
+                color: #ffffff;
+            }
+            
+            /* Botões de Exportação do DataTables no modo Dark */
+            .dt-button {
+                color: var(--bs-body-color) !important;
+                background-color: #3b3b3b !important;
+                border-color: var(--bs-border-color) !important;
+            }
+            .dt-button:hover {
+                background-color: #495057 !important;
+            }
+        }
+        
+        .ts-wrapper { font-family: var(--bs-body-font-family); }
         .kpi-card[title]:hover {
             transform: translateY(-3px);
             box-shadow: 0 6px 15px rgba(0,0,0,0.08) !important;
             cursor: help;
         }
-        .kpi-card {
-            transition: all 0.2s ease;
-        }
+        .kpi-card { transition: all 0.2s ease; }
         
-        /* (Melhoria 4) Botão de logout como link */
         .logout-button {
-            background: none;
-            border: none;
-            color: var(--bs-primary);
-            padding: 0;
-            text-decoration: none;
+            background: none; border: none; color: var(--bs-primary);
+            padding: 0; text-decoration: none;
         }
-        .logout-button:hover {
-            text-decoration: underline;
+        .logout-button:hover { text-decoration: underline; }
+        
+        #themeDropdown {
+            color: var(--bs-nav-link-color); padding-left: 0.5rem; padding-right: 0.5rem;
         }
+        #themeDropdown:hover { color: var(--bs-primary); }
+        .dropdown-menu .bi { width: 1.5em; }
     </style>
     
     {% block extra_css %}{% endblock %}
 </head>
-<body class="bg-light">
+<body> 
 
-    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm mb-4 sticky-top">
+    <nav class="navbar navbar-expand-lg bg-body shadow-sm mb-4 sticky-top">
         <div class="container-fluid">
             <a class="navbar-brand" href="{% url 'dashboard_geral' %}">
                 <img src="{% static 'dashboard/images/logoRB.png' %}" alt="Rovema Bank Logo" style="height: 35px;">
@@ -84,7 +167,7 @@
                     {% if user.role == "admin" or user.role == "manager" %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle 
-                           {% if request.resolver_match.url_name in 'atribuir_clientes,user_list,gestao_metas,carga_dados' %}active{% endif %}" 
+                           {% if request.resolver_match.url_name in 'atribuir_clientes,user_list,gestao_metas,carga_dados,commission_list' %}active{% endif %}" 
                            href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             Gestão
                         </a>
@@ -94,6 +177,7 @@
                             <li><a class="dropdown-item {% if request.resolver_match.url_name == 'carga_dados' %}active{% endif %}" href="{% url 'carga_dados' %}">Carga de Dados</a></li>
                             {% if user.role == "admin" %}
                             <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item {% if request.resolver_match.url_name == 'commission_list' %}active{% endif %}" href="{% url 'commission_list' %}">Gestão de Comissões</a></li>
                             <li><a class="dropdown-item {% if request.resolver_match.url_name == 'user_list' %}active{% endif %}" href="{% url 'user_list' %}">Gestão de Utilizadores</a></li>
                             {% endif %}
                         </ul>
@@ -102,8 +186,28 @@
                 </ul>
                 
                 <div class="navbar-text d-flex align-items-center">
+                
+                    <div class="nav-item dropdown me-2">
+                        <button class="btn btn-link nav-link" id="themeDropdown" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Mudar tema">
+                            <i class="bi bi-sun-fill" id="theme-icon-light"></i>
+                            <i class="bi bi-moon-stars-fill" id="theme-icon-dark" style="display: none;"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="themeDropdown">
+                            <li>
+                                <button class="dropdown-item d-flex align-items-center" type="button" data-theme-value="light">
+                                    <i class="bi bi-sun-fill me-2"></i> Light
+                                </button>
+                            </li>
+                            <li>
+                                <button class="dropdown-item d-flex align-items-center" type="button" data-theme-value="dark">
+                                    <i class="bi bi-moon-stars-fill me-2"></i> Dark
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                
                     <div class="text-end me-3">
-                        <span class="d-block small text-dark">Bem-vindo, {{ user.first_name|default:user.email }}!</span>
+                        <span class="d-block small">Bem-vindo, {{ user.first_name|default:user.email }}!</span>
                     </div>
                     <form method="POST" action="{% url 'logout' %}" style="display: inline;">
                         {% csrf_token %}
@@ -129,27 +233,59 @@
     </main>
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-    
     <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
     
     <script src="https://cdn.datatables.net/v/bs5/dt-2.1.2/datatables.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/3.0.2/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/3.0.2/js/buttons.bootstrap5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+    <script src="https://cdn.datatables.net/buttons/3.0.2/js/buttons.html5.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/3.0.2/js/buttons.print.min.js"></script>
+
 
     <script>
         $(document).ready(function() {
             
-            // (Melhoria 2) Ativa o Tom Select
-            $("select.tom-select-multiple").each(function() {
-                new TomSelect(this, {
-                    plugins: ['remove_button'],
-                    create: false,
-                });
-            });
+            /* (INÍCIO DA MODIFICAÇÃO)
+               Removemos o inicializador genérico do TomSelect daqui.
+               Cada página (como dashboard_geral.html) será responsável
+               por inicializar os seus próprios seletores.
+            */
+            // $("select.tom-select-multiple").each(function() { ... });
+            /* (FIM DA MODIFICAÇÃO) */
 
-            // (Melhoria 3) Ativa o DataTables
+
+            // Ativa o DataTables com botões de exportação
             $("table.interactive-datatable").each(function() {
-                new DataTable(this, {
+                $(this).DataTable({
+                    layout: {
+                        topStart: {
+                            buttons: [
+                                'copy', 
+                                {
+                                    extend: 'excel',
+                                    text: 'Excel',
+                                    titleAttr: 'Exportar para Excel',
+                                    className: 'btn-success'
+                                },
+                                {
+                                    extend: 'csv',
+                                    text: 'CSV',
+                                    titleAttr: 'Exportar para CSV',
+                                    className: 'btn-info'
+                                },
+                                {
+                                    extend: 'pdf',
+                                    text: 'PDF',
+                                    titleAttr: 'Exportar para PDF',
+                                    className: 'btn-danger'
+                                }
+                            ]
+                        }
+                    },
                     language: {
                         "search": "Pesquisar:",
                         "lengthMenu": "Mostrar _MENU_ entradas",
@@ -162,7 +298,7 @@
                 });
             });
             
-            // (Melhoria 1) Feedback em formulários de processamento lento
+            // Feedback em formulários de processamento lento
             $("form.form-processing").on("submit", function() {
                 var button = $(this).find("button.form-processing-button");
                 button.prop("disabled", true);
@@ -171,6 +307,39 @@
         });
     </script>
     
+    <script>
+        (function() {
+            const lightIcon = document.getElementById('theme-icon-light');
+            const darkIcon = document.getElementById('theme-icon-dark');
+            
+            const setActiveIcon = (theme) => {
+                if (theme === 'dark') {
+                    if (lightIcon) lightIcon.style.display = 'none';
+                    if (darkIcon) darkIcon.style.display = 'inline-block';
+                } else {
+                    if (lightIcon) lightIcon.style.display = 'inline-block';
+                    if (darkIcon) darkIcon.style.display = 'none';
+                }
+            };
+            
+            const currentTheme = document.documentElement.getAttribute('data-bs-theme');
+            setActiveIcon(currentTheme);
+            
+            document.querySelectorAll('[data-theme-value]').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const theme = button.getAttribute('data-theme-value');
+                    
+                    document.documentElement.setAttribute('data-bs-theme', theme);
+                    localStorage.setItem('theme', theme);
+                    setActiveIcon(theme);
+                    
+                    window.dispatchEvent(new CustomEvent('themeChanged', { detail: { theme: theme } }));
+                });
+            });
+        })();
+    </script>
+
     {% block extra_js %}{% endblock %}
 
 </body>

@@ -1,0 +1,28 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Confirmar Eliminação - Rovema{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="card shadow-sm border-danger">
+            <div class="card-body p-4 p-md-5 text-center">
+                
+                <h1 class="h3 mb-3 text-danger">Confirmar Eliminação</h1>
+                
+                <p class="lead">Tem a certeza de que quer eliminar permanentemente a regra <strong>{{ object.rule_name }}</strong>?</p>
+                <p>Esta ação não pode ser revertida. A comissão deixará de ser calculada para a fonte '{{ object.source }}'.</p>
+                
+                <form method="POST">
+                    {% csrf_token %}
+                    <div class="d-flex justify-content-center gap-2 mt-4">
+                        <button type="submit" class="btn btn-danger btn-lg">Sim, tenho a certeza</button>
+                        <a href="{% url 'commission_list' %}" class="btn btn-secondary btn-lg">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

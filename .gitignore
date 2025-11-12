@@ -19,3 +19,9 @@ media/tmp/
 .vscode/
 .idea/
 .DS_Store
+
+# Ficheiros de segredos
+.env
+
+# Ficheiros de Log
+logs/

@@ -1,164 +1,177 @@
 {% extends 'dashboard/base.html' %}
 {% load static %}
-{% load l10n %} {% block title %}Dashboard Geral - Rovema{% endblock %}
+{% load l10n %} 
+
+{% block title %}Dashboard Geral - Rovema{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Mostra um overlay a piscar enquanto os dados carregam */
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(var(--bs-body-bg-rgb, 255, 255, 255), 0.7); /* Fundo semi-transparente */
+        z-index: 10;
+        display: none; /* Começa escondido */
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--bs-card-border-radius);
+    }
+    
+    [data-bs-theme="dark"] .loading-overlay {
+        background: rgba(var(--bs-body-bg-rgb, 26, 26, 26), 0.7);
+    }
+    
+    .content-wrapper {
+        position: relative; /* Necessário para o overlay */
+        min-height: 500px; /* Garante altura mínima durante o load inicial */
+    }
+</style>
+{% endblock %}
+
 
 {% block content %}
     <div class="card shadow-sm mb-4">
         <div class="card-body">
-            <form method="GET" action="{% url 'dashboard_geral' %}">
-                <div class="row g-3 align-items-end">
-                    <div class="col-md">
-                        <label for="start_date" class="form-label fw-bold">Data Inicial:</label>
-                        <input type="date" id="start_date" name="start_date" value="{{ current_start_date }}" class="form-control">
-                    </div>
-                    <div class="col-md">
-                        <label for="end_date" class="form-label fw-bold">Data Final:</label>
-                        <input type="date" id="end_date" name="end_date" value="{{ current_end_date }}" class="form-control">
-                    </div>
-                    
-                    <div class="col-md">
-                        <label for="products" class="form-label fw-bold">Produto:</label>
-                        <select id="products" name="products" class="tom-select-multiple" multiple>
-                            {% for product in all_products %}
-                            <option value="{{ product }}" {% if product in selected_products %}selected{% endif %}>
-                                {{ product }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    
-                    {% if user.role == "admin" or user.role == "manager" %}
-                    <div class="col-md">
-                        <label for="consultants" class="form-label fw-bold">Consultor:</label>
-                        <select id="consultants" name="consultants" class="tom-select-multiple" multiple>
-                            {% for consultant in all_consultants %}
-                            <option value="{{ consultant.id }}" {% if consultant.id in selected_consultants %}selected{% endif %}>
-                                {{ consultant.first_name }} {{ consultant.last_name }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    {% endif %}
-                    
-                    <div class="col-md-auto">
-                        <button type="submit" class="btn btn-primary w-100">Aplicar Filtros</button>
-                    </div>
+            <div id="filters-form" class="row g-3 align-items-end">
+                <div class="col-md">
+                    <label for="start_date" class="form-label fw-bold">Data Inicial:</label>
+                    <input type="date" id="start_date" name="start_date" value="{{ current_start_date }}" class="form-control filter-input">
                 </div>
-            </form>
-        </div>
-    </div>
-
-    <div class="mb-3">
-        <h1>Dashboard Geral</h1>
-        <p class="lead text-muted">Exibindo dados de {{ start_date_display }} até {{ end_date_display }} (KPIs) e tendência dos últimos 12 meses.</p>
-    </div>
-
-    <div class="row">
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card shadow-sm h-100 kpi-card" title="Volume Total Transacionado (Bruto) por todos os clientes no período.">
-                <div class="card-body">
-                    <h6 class="text-uppercase text-muted small">Volume Total (TPV)</h6>
-                    <span class="h2 fw-bold">R$ {{ kpi_tpv|localize }}</span>
+                <div class="col-md">
+                    <label for="end_date" class="form-label fw-bold">Data Final:</label>
+                    <input type="date" id="end_date" name="end_date" value="{{ current_end_date }}" class="form-control filter-input">
                 </div>
-            </div>
-        </div>
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card shadow-sm h-100 kpi-card" title="Receita Líquida (Lucro) gerada para a Rovema no período.">
-                <div class="card-body">
-                    <h6 class="text-uppercase text-muted small">Receita Líquida (Lucro)</h6>
-                    <span class="h2 fw-bold">R$ {{ kpi_net|localize }}</span>
+                
+                <div class="col-md">
+                    <label for="products" class="form-label fw-bold">Produto:</label>
+                    <select id="products" name="products" class="tom-select-multiple filter-input" multiple>
+                        {% for product in all_products %}
+                        <option value="{{ product }}">{{ product }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
-            </div>
-        </div>
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card shadow-sm h-100 kpi-card" title="Percentagem média da Receita Líquida sobre o TPV (Lucro / TPV).">
-                <div class="card-body">
-                    <h6 class="text-uppercase text-muted small">Margem Média</h6>
-                    <span class="h2 fw-bold">{{ kpi_margin|floatformat:2 }}%</span>
+                
+                {% if user.role == "admin" or user.role == "manager" %}
+                <div class="col-md">
+                    <label for="consultants" class="form-label fw-bold">Consultor:</label>
+                    <select id="consultants" name="consultants" class="tom-select-multiple filter-input" multiple>
+                        {% for consultant in all_consultants %}
+                        <option value="{{ consultant.id }}">{{ consultant.first_name }} {{ consultant.last_name }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
-            </div>
-        </div>
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card shadow-sm h-100 kpi-card" title="Número total de transações (vendas) individuais no período.">
-                <div class="card-body">
-                    <h6 class="text-uppercase text-muted small">Total de Vendas</h6>
-                    <span class="h2 fw-bold">{{ kpi_total_sales|localize }}</span>
-                </div>
+                {% endif %}
             </div>
         </div>
     </div>
 
-    <div class="row">
-        <div class="col-lg-6 mb-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-body">
-                    <h5 class="card-title">Lucro por Produto (Período)</h5>
-                    <div id="pieChart" style="width: 100%; height: 400px;"></div>
+    <div class="content-wrapper">
+        
+        <div class="loading-overlay" id="loadingOverlay">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">A carregar...</span>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <h1>Dashboard Geral</h1>
+            <p class="lead text-muted">Exibindo dados de <span id="start_date_display">...</span> até <span id="end_date_display">...</span> (KPIs) e tendência dos últimos 12 meses.</p>
+        </div>
+
+        <div class="row">
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card shadow-sm h-100 kpi-card" title="Volume Total Transacionado (Bruto) por todos os clientes no período.">
+                    <div class="card-body">
+                        <h6 class="text-uppercase text-muted small">Volume Total (TPV)</h6>
+                        <span class="h2 fw-bold" id="kpi-tpv">R$ 0,00</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card shadow-sm h-100 kpi-card" title="Receita Líquida (Lucro) gerada para a Rovema no período.">
+                    <div class="card-body">
+                        <h6 class="text-uppercase text-muted small">Receita Líquida (Lucro)</h6>
+                        <span class="h2 fw-bold" id="kpi-net">R$ 0,00</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card shadow-sm h-100 kpi-card" title="Percentagem média da Receita Líquida sobre o TPV (Lucro / TPV).">
+                    <div class="card-body">
+                        <h6 class="text-uppercase text-muted small">Margem Média</h6>
+                        <span class="h2 fw-bold" id="kpi-margin">0,00%</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card shadow-sm h-100 kpi-card" title="Número total de transações (vendas) individuais no período.">
+                    <div class="card-body">
+                        <h6 class="text-uppercase text-muted small">Total de Vendas</h6>
+                        <span class="h2 fw-bold" id="kpi-sales">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Lucro por Produto (Período)</h5>
+                        <div id="pieChart" style="width: 100%; height: 400px;"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">TPV (Últimos 12 Meses)</h5>
+                        <div id="lineChart" style="width: 100%; height: 400px;"></div>
+                    </div>
                 </div>
             </div>
         </div>
         
-        <div class="col-lg-6 mb-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-body">
-                    <h5 class="card-title">TPV (Últimos 12 Meses)</h5>
-                    <div id="lineChart" style="width: 100%; height: 400px;"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="row">
-        <div class="col-lg-6 mb-4">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title">Clientes (Maior TPV)</h5>
-                    <div class="table-responsive">
-                        <table class="table table-sm">
-                            <thead>
-                                <tr><th>Cliente</th><th class="text-end">Volume (R$)</th></tr>
-                            </thead>
-                            <tbody>
-                                {% for client in top_5_clients %}
-                                <tr>
-                                    <td>{{ client.raw_client_name }}</td>
-                                    <td class="text-end fw-bold">{{ client.total_tpv|localize }}</td>
-                                </tr>
-                                {% empty %}
-                                <tr><td colspan="2" class="text-center text-muted">Nenhum dado.</td></tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+        <div class="row">
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">Clientes (Maior TPV)</h5>
+                        <div class="table-responsive">
+                            <table class="table table-sm" id="table-top-clients">
+                                <thead>
+                                    <tr><th>Cliente</th><th class="text-end">Volume (R$)</th></tr>
+                                </thead>
+                                <tbody>
+                                    </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="col-lg-6 mb-4">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title">Clientes (Menor TPV)</h5>
-                    <div class="table-responsive">
-                        <table class="table table-sm">
-                            <thead>
-                                <tr><th>Cliente</th><th class="text-end">Volume (R$)</th></tr>
-                            </thead>
-                            <tbody>
-                                {% for client in bottom_5_clients %}
-                                <tr>
-                                    <td>{{ client.raw_client_name }}</td>
-                                    <td class="text-end fw-bold">{{ client.total_tpv|localize }}</td>
-                                </tr>
-                                {% empty %}
-                                <tr><td colspan="2" class="text-center text-muted">Nenhum dado.</td></tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">Clientes (Menor TPV)</h5>
+                        <div class="table-responsive">
+                            <table class="table table-sm" id="table-bottom-clients">
+                                <thead>
+                                    <tr><th>Cliente</th><th class="text-end">Volume (R$)</th></tr>
+                                </thead>
+                                <tbody>
+                                    </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-    
 {% endblock %}
 
 {% block extra_js %}
@@ -166,88 +179,227 @@
 <script src="https://cdn.amcharts.com/lib/5/percent.js"></script>
 <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
 <script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/themes/Dark.js"></script>
 
 <script>
-    var pieChartData = JSON.parse('{{ pie_chart_json|safe }}');
-    am5.ready(function() {
-        var root = am5.Root.new("pieChart");
-        root.setThemes([ am5themes_Animated.new(root) ]);
-        var chart = root.container.children.push(
-            am5percent.PieChart.new(root, { layout: root.verticalLayout, innerRadius: am5.percent(50) })
-        );
-        var series = chart.series.push(
-            am5percent.PieSeries.new(root, { valueField: "revenue", categoryField: "source", alignLabels: true })
-        );
-        if (pieChartData.length === 0) {
-            series.data.setAll([]);
-            chart.seriesContainer.children.push(am5.Label.new(root, {
-                text: "Nenhum dado.", centerX: am5.p50, centerY: am5.p50,
-                fontSize: 18, fill: am5.color(0x888888)
-            }));
-        } else { series.data.setAll(pieChartData); }
-        series.labels().template.setAll({
-            textType: "circular", radius: 4,
-            text: "{category}: {valuePercentTotal.formatNumber('0.0')}%"
-        });
-        series.ticks().template.set("forceHidden", true); 
-        var legend = chart.children.push(am5.Legend.new(root, {
-            centerX: am5.percent(50), x: am5.percent(50),
-            marginTop: 15, marginBottom: 15
-        }));
-        legend.data.setAll(series.dataItems);
+    // --- Variáveis Globais para Gráficos e Filtros ---
+    var pieChartRoot = null;
+    var lineChartRoot = null;
+    var pieChartSeries = null;
+    var lineChartSeries = null;
+    var pieChartLegend = null; // (NOVO) Referência para a legenda
+    
+    var productSelect = null;
+    var consultantSelect = null;
+    
+    const brlFormatter = new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
     });
-</script>
+    
+    const intFormatter = new Intl.NumberFormat('pt-BR');
 
-<script>
-    var lineChartData = JSON.parse('{{ line_chart_json|safe }}');
+    // --- Lógica de Carregamento da API ---
+    async function fetchDashboardData() {
+        $('#loadingOverlay').fadeIn(100);
+
+        const params = new URLSearchParams();
+        params.append('start_date', $('#start_date').val());
+        params.append('end_date', $('#end_date').val());
+        
+        if (productSelect) productSelect.getValue().forEach(p => params.append('products[]', p));
+        if (consultantSelect) consultantSelect.getValue().forEach(c => params.append('consultants[]', c));
+
+        const url = `{% url 'api_dashboard_geral_data' %}?${params.toString()}`;
+
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error('Erro ao buscar dados da API');
+            }
+            const data = await response.json();
+
+            updateKPIs(data.kpis);
+            updateCharts(data.charts);
+            updateTables(data.tables);
+            
+            $('#start_date_display').text(data.filters_display.start_date_display);
+            $('#end_date_display').text(data.filters_display.end_date_display);
+            
+        } catch (error) {
+            console.error('Falha ao carregar dados:', error);
+        } finally {
+            $('#loadingOverlay').fadeOut(200);
+        }
+    }
+
+    // --- Funções de Atualização da UI ---
+    function updateKPIs(kpis) {
+        $('#kpi-tpv').text(brlFormatter.format(kpis.kpi_tpv));
+        $('#kpi-net').text(brlFormatter.format(kpis.kpi_net));
+        $('#kpi-margin').text(`${parseFloat(kpis.kpi_margin).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}%`);
+        $('#kpi-sales').text(intFormatter.format(kpis.kpi_total_sales));
+    }
+
+    function updateCharts(charts) {
+        if (pieChartSeries) {
+            if(charts.pie_chart_data.length > 0) {
+                pieChartSeries.data.setAll(charts.pie_chart_data);
+            } else {
+                pieChartSeries.data.setAll([]); 
+            }
+        }
+        if (lineChartSeries) {
+            lineChartSeries.data.setAll(charts.line_chart_data);
+        }
+    }
+
+    function updateTables(tables) {
+        const topBody = $('#table-top-clients tbody');
+        topBody.empty();
+        if (tables.top_5_clients.length > 0) {
+            tables.top_5_clients.forEach(client => {
+                topBody.append(`
+                    <tr>
+                        <td>${client.raw_client_name}</td>
+                        <td class="text-end fw-bold">${brlFormatter.format(client.total_tpv)}</td>
+                    </tr>
+                `);
+            });
+        } else {
+            topBody.append('<tr><td colspan="2" class="text-center text-muted">Nenhum dado.</td></tr>');
+        }
+
+        const bottomBody = $('#table-bottom-clients tbody');
+        bottomBody.empty();
+        if (tables.bottom_5_clients.length > 0) {
+            tables.bottom_5_clients.forEach(client => {
+                bottomBody.append(`
+                    <tr>
+                        <td>${client.raw_client_name}</td>
+                        <td class="text-end fw-bold">${brlFormatter.format(client.total_tpv)}</td>
+                    </tr>
+                `);
+            });
+        } else {
+            bottomBody.append('<tr><td colspan="2" class="text-center text-muted">Nenhum dado.</td></tr>');
+        }
+    }
+
+    // --- Funções de Tema dos Gráficos (CORRIGIDAS) ---
+    function applyPieTheme(theme) {
+        if (!pieChartRoot) return; 
+        var themes = [am5themes_Animated.new(pieChartRoot)];
+        if (theme === 'dark') {
+            themes.push(am5themes_Dark.new(pieChartRoot));
+            pieChartRoot.interfaceColors.set("text", am5.color(0xdee2e6));
+            pieChartRoot.interfaceColors.set("grid", am5.color(0x495057));
+        } else {
+            // (CORRIGIDO) Restaura as cores padrão no modo light
+            pieChartRoot.interfaceColors.set("text", am5.color(0x000000));
+            pieChartRoot.interfaceColors.set("grid", am5.color(0xdee2e6));
+        }
+        pieChartRoot.setThemes(themes);
+    }
+
+    function applyLineTheme(theme) {
+        if (!lineChartRoot) return;
+        var themes = [am5themes_Animated.new(lineChartRoot)];
+        if (theme === 'dark') {
+            themes.push(am5themes_Dark.new(lineChartRoot));
+            lineChartRoot.interfaceColors.set("text", am5.color(0xdee2e6));
+            lineChartRoot.interfaceColors.set("grid", am5.color(0x495057));
+        } else {
+            // (CORRIGIDO) Restaura as cores padrão no modo light
+            lineChartRoot.interfaceColors.set("text", am5.color(0x000000));
+            lineChartRoot.interfaceColors.set("grid", am5.color(0xdee2e6));
+        }
+        lineChartRoot.setThemes(themes);
+    }
+    
+    // Ouve o evento global de mudança de tema
+    window.addEventListener('themeChanged', function(e) {
+        applyPieTheme(e.detail.theme);
+        applyLineTheme(e.detail.theme);
+    });
+
+    // --- Inicialização (amCharts e Eventos) ---
     am5.ready(function() {
-        var root = am5.Root.new("lineChart");
-        root.setThemes([ am5themes_Animated.new(root) ]);
-        root.numberFormatter.set("numberFormat", "R$ #,###.00");
-        var chart = root.container.children.push(am5xy.XYChart.new(root, {
-            panX: false, panY: false, wheelX: "none", wheelY: "none"
-        }));
-        var cursor = chart.set("cursor", am5xy.XYCursor.new(root, {}));
+        // 1. Inicializa o Gráfico de Pizza
+        pieChartRoot = am5.Root.new("pieChart");
+        applyPieTheme(document.documentElement.getAttribute('data-bs-theme'));
+        
+        var chart = pieChartRoot.container.children.push(
+            am5percent.PieChart.new(pieChartRoot, { layout: pieChartRoot.verticalLayout, innerRadius: am5.percent(50) })
+        );
+        pieChartSeries = chart.series.push(
+            am5percent.PieSeries.new(pieChartRoot, { valueField: "revenue", categoryField: "source", alignLabels: true })
+        );
+        pieChartSeries.data.setAll([]); 
+        pieChartSeries.labels().template.setAll({ textType: "circular", radius: 4, text: "{category}: {valuePercentTotal.formatNumber('0.0')}%" });
+        pieChartSeries.ticks().template.set("forceHidden", true); 
+        pieChartLegend = chart.children.push(am5.Legend.new(pieChartRoot, { centerX: am5.percent(50), x: am5.percent(50), marginTop: 15, marginBottom: 15 }));
+        pieChartLegend.data.setAll(pieChartSeries.dataItems);
+        
+        // (CORRIGIDO) Atualiza a legenda quando os dados mudam
+        pieChartSeries.data.events.on("datavalidated", function() {
+            if(pieChartLegend) pieChartLegend.data.setAll(pieChartSeries.dataItems);
+        });
+
+        // 2. Inicializa o Gráfico de Linha
+        lineChartRoot = am5.Root.new("lineChart");
+        applyLineTheme(document.documentElement.getAttribute('data-bs-theme'));
+        
+        lineChartRoot.numberFormatter.set("numberFormat", "R$ #,###.00");
+        var chartLine = lineChartRoot.container.children.push(am5xy.XYChart.new(lineChartRoot, { panX: false, panY: false, wheelX: "none", wheelY: "none" }));
+        var cursor = chartLine.set("cursor", am5xy.XYCursor.new(lineChartRoot, {}));
         cursor.lineY.set("visible", false);
-        var xAxis = chart.xAxes.push(am5xy.DateAxis.new(root, {
-            baseInterval: { timeUnit: "month", count: 1 },
-            renderer: am5xy.AxisRendererX.new(root, {}),
-            tooltip: am5.Tooltip.new(root, {})
-        }));
-        var yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
-            renderer: am5xy.AxisRendererY.new(root, {}),
-            tooltip: am5.Tooltip.new(root, {})
-        }));
-        var series = chart.series.push(am5xy.LineSeries.new(root, {
+        var xAxis = chartLine.xAxes.push(am5xy.DateAxis.new(lineChartRoot, { baseInterval: { timeUnit: "month", count: 1 }, renderer: am5xy.AxisRendererX.new(lineChartRoot, {}), tooltip: am5.Tooltip.new(lineChartRoot, {}) }));
+        var yAxis = chartLine.yAxes.push(am5xy.ValueAxis.new(lineChartRoot, { renderer: am5xy.AxisRendererY.new(lineChartRoot, {}), tooltip: am5.Tooltip.new(lineChartRoot, {}) }));
+        
+        lineChartSeries = chartLine.series.push(am5xy.LineSeries.new(lineChartRoot, {
             name: "TPV", xAxis: xAxis, yAxis: yAxis,
             valueYField: "volume", valueXField: "date",
-            tooltip: am5.Tooltip.new(root, { labelText: "{valueY}" })
+            tooltip: am5.Tooltip.new(lineChartRoot, { labelText: "{valueY}" })
         }));
-        series.strokes.template.setAll({
-            strokeColor: am5.color(0x0068C9), strokeWidth: 3
-        });
-        series.fills.template.setAll({
+        lineChartSeries.strokes.template.setAll({ strokeColor: am5.color(0x0068C9), strokeWidth: 3 });
+        lineChartSeries.fills.template.setAll({
             fillOpacity: 0.1, visible: true,
-            fillPattern: am5.LinearGradient.new(root, {
-                stops: [
-                    { color: am5.color(0x0068C9), opacity: 0.5 },
-                    { color: am5.color(0x0068C9), opacity: 0 }
-                ],
+            fillPattern: am5.LinearGradient.new(lineChartRoot, {
+                stops: [ { color: am5.color(0x0068C9), opacity: 0.5 }, { color: am5.color(0x0068C9), opacity: 0 } ],
                 rotation: 90
             })
         });
-        series.data.processor = am5.DataProcessor.new(root, {
-            dateFields: ["date"], dateFormat: "yyyy-MM-dd"
-        });
-        series.bullets.push(function() {
-            return am5.Bullet.new(root, {
-                sprite: am5.Circle.new(root, {
-                    radius: 5, fill: series.get("fill"),
-                    stroke: root.interfaceColors.get("background"), strokeWidth: 2
-                })
+        lineChartSeries.data.processor = am5.DataProcessor.new(lineChartRoot, { dateFields: ["date"], dateFormat: "yyyy-MM-dd" });
+        lineChartSeries.bullets.push(function() {
+            return am5.Bullet.new(lineChartRoot, {
+                sprite: am5.Circle.new(lineChartRoot, { radius: 5, fill: lineChartSeries.get("fill"), stroke: lineChartRoot.interfaceColors.get("background"), strokeWidth: 2 })
             });
         });
-        series.data.setAll(lineChartData);
+        lineChartSeries.data.setAll([]); 
+        
+        // 3. Carrega os dados pela primeira vez
+        fetchDashboardData();
+    });
+
+    // 4. Configura os Event Listeners para os filtros (jQuery)
+    $(document).ready(function() {
+        if ($('#products').length) {
+            productSelect = new TomSelect($('#products')[0], {
+                plugins: ['remove_button'],
+                create: false,
+                onChange: fetchDashboardData // Chama a API a cada mudança
+            });
+        }
+        if ($('#consultants').length) {
+            consultantSelect = new TomSelect($('#consultants')[0], {
+                plugins: ['remove_button'],
+                create: false,
+                onChange: fetchDashboardData // Chama a API a cada mudança
+            });
+        }
+        
+        $('#start_date, #end_date').on('change', fetchDashboardData);
     });
 </script>
 {% endblock %}

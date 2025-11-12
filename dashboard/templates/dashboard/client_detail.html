@@ -1,0 +1,210 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+{% load l10n %}
+
+{% block title %}{{ client.client_name }} - Rovema{% endblock %}
+
+{% block content %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label for="start_date" class="form-label fw-bold">Data Inicial:</label>
+                    <input type="date" id="start_date" name="start_date" value="{{ current_start_date }}" class="form-control">
+                </div>
+                <div class="col-md-4">
+                    <label for="end_date" class="form-label fw-bold">Data Final:</label>
+                    <input type="date" id="end_date" name="end_date" value="{{ current_end_date }}" class="form-control">
+                </div>
+                <div class="col-md-auto">
+                    <button type="submit" class="btn btn-primary w-100">Aplicar Filtros</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <h1>{{ client.client_name }}</h1>
+        <p class="lead text-muted">
+            CNPJ: {{ client.cnpj }} | 
+            Consultor: {{ client.consultant.first_name }} {{ client.consultant.last_name }}
+        </p>
+    </div>
+
+    <div class="row">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card shadow-sm h-100 kpi-card" title="Volume Total (Bruto) no período selecionado.">
+                <div class="card-body">
+                    <h6 class="text-uppercase text-muted small">Volume (TPV) no Período</h6>
+                    <span class="h2 fw-bold">R$ {{ kpi_tpv|localize }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card shadow-sm h-100 kpi-card" title="Receita Líquida (Lucro) no período selecionado.">
+                <div class="card-body">
+                    <h6 class="text-uppercase text-muted small">Receita Líquida no Período</h6>
+                    <span class="h2 fw-bold">R$ {{ kpi_net|localize }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card shadow-sm h-100 kpi-card" title="Margem média no período selecionado.">
+                <div class="card-body">
+                    <h6 class="text-uppercase text-muted small">Margem Média no Período</h6>
+                    <span class="h2 fw-bold">{{ kpi_margin|floatformat:2 }}%</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card shadow-sm h-100 kpi-card" title="Total de transações no período selecionado.">
+                <div class="card-body">
+                    <h6 class="text-uppercase text-muted small">Vendas no Período</h6>
+                    <span class="h2 fw-bold">{{ kpi_total_sales|localize }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="card-title">TPV vs Lucro (Últimos 12 Meses)</h5>
+                    <div id="lineChart" style="width: 100%; height: 400px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Histórico de Transações (Últimas 100)</h5>
+                    <div class="table-responsive">
+                        <table class="table table-hover interactive-datatable">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Fonte</th>
+                                    <th>Produto</th>
+                                    <th class="text-end">TPV (R$)</th>
+                                    <th class="text-end">Lucro (R$)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for sale in transactions %}
+                                <tr>
+                                    <td>{{ sale.date|date:"d/m/Y H:i" }}</td>
+                                    <td>{{ sale.source }}</td>
+                                    <td>{{ sale.product_name }}</td>
+                                    <td class="text-end">{{ sale.revenue_gross|localize }}</td>
+                                    <td class="text-end fw-bold">{{ sale.revenue_net|localize }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="5" class="text-center text-muted">Nenhuma transação encontrada.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/themes/Dark.js"></script>
+
+<script>
+    var lineChartData = JSON.parse('{{ line_chart_json|safe }}');
+    var lineChartRoot = null;
+
+    function applyLineTheme(theme) {
+        if (!lineChartRoot) return;
+
+        var themes = [am5themes_Animated.new(lineChartRoot)];
+        if (theme === 'dark') {
+            themes.push(am5themes_Dark.new(lineChartRoot));
+            // (CORREÇÃO) Força a cor dos rótulos e eixos no modo escuro
+            lineChartRoot.interfaceColors.set("text", am5.color(0xdee2e6));
+            lineChartRoot.interfaceColors.set("grid", am5.color(0x495057));
+        } else {
+            // Restaura as cores padrão no modo light
+            lineChartRoot.interfaceColors.set("text", am5.color(0x000000));
+            lineChartRoot.interfaceColors.set("grid", am5.color(0xdee2e6));
+        }
+        lineChartRoot.setThemes(themes);
+    }
+    
+    window.addEventListener('themeChanged', function(e) {
+        applyLineTheme(e.detail.theme);
+    });
+    
+    am5.ready(function() {
+        lineChartRoot = am5.Root.new("lineChart");
+        
+        var currentTheme = document.documentElement.getAttribute('data-bs-theme');
+        applyLineTheme(currentTheme);
+
+        lineChartRoot.numberFormatter.set("numberFormat", "R$ #,###.00");
+        
+        var chart = lineChartRoot.container.children.push(am5xy.XYChart.new(lineChartRoot, {
+            panX: false, panY: false, wheelX: "none", wheelY: "none"
+        }));
+        
+        var cursor = chart.set("cursor", am5xy.XYCursor.new(lineChartRoot, {}));
+        cursor.lineY.set("visible", false);
+        
+        var xAxis = chart.xAxes.push(am5xy.DateAxis.new(lineChartRoot, {
+            baseInterval: { timeUnit: "month", count: 1 },
+            renderer: am5xy.AxisRendererX.new(lineChartRoot, {}),
+            tooltip: am5.Tooltip.new(lineChartRoot, {})
+        }));
+        
+        var yAxis = chart.yAxes.push(am5xy.ValueAxis.new(lineChartRoot, {
+            renderer: am5xy.AxisRendererY.new(lineChartRoot, {}),
+            tooltip: am5.Tooltip.new(lineChartRoot, {})
+        }));
+        
+        // --- Série 1: TPV (Volume) ---
+        var seriesTPV = chart.series.push(am5xy.LineSeries.new(lineChartRoot, {
+            name: "TPV", xAxis: xAxis, yAxis: yAxis,
+            valueYField: "tpv", valueXField: "date",
+            tooltip: am5.Tooltip.new(lineChartRoot, { labelText: "TPV: {valueY}" }),
+            stroke: am5.color(0x0068C9) // Azul
+        }));
+        seriesTPV.strokes.template.setAll({ strokeWidth: 3 });
+        seriesTPV.data.processor = am5.DataProcessor.new(lineChartRoot, {
+            dateFields: ["date"], dateFormat: "yyyy-MM-dd"
+        });
+        
+        // --- Série 2: NET (Lucro) ---
+        var seriesNET = chart.series.push(am5xy.LineSeries.new(lineChartRoot, {
+            name: "Lucro", xAxis: xAxis, yAxis: yAxis,
+            valueYField: "net", valueXField: "date",
+            tooltip: am5.Tooltip.new(lineChartRoot, { labelText: "Lucro: {valueY}" }),
+            stroke: am5.color(0x00A99D) 
+        }));
+        seriesNET.strokes.template.setAll({ strokeWidth: 2, strokeDasharray: [3, 3] });
+        seriesNET.data.processor = am5.DataProcessor.new(lineChartRoot, {
+            dateFields: ["date"], dateFormat: "yyyy-MM-dd"
+        });
+
+        // Legenda
+        var legend = chart.children.push(am5.Legend.new(lineChartRoot, {
+            centerX: am5.p50, x: am5.p50
+        }));
+        legend.data.setAll([seriesTPV, seriesNET]);
+        
+        // Define os dados
+        seriesTPV.data.setAll(lineChartData);
+        seriesNET.data.setAll(lineChartData);
+    });
+</script>
+{% endblock %}

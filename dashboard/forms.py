@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
-from .models import User
+from .models import User, CommissionRule # (NOVO) Adicione CommissionRule
 
 class CustomUserCreationForm(forms.ModelForm):
     """
@@ -40,3 +40,18 @@ class CustomUserChangeForm(forms.ModelForm):
         model = User
         # Permite editar estes campos
         fields = ('email', 'first_name', 'last_name', 'role', 'manager')
+
+
+# --- (INÍCIO DA NOVA FUNCIONALIDADE) ---
+class CommissionRuleForm(forms.ModelForm):
+    """
+    Formulário para criar e editar Regras de Comissão.
+    """
+    class Meta:
+        model = CommissionRule
+        fields = ('rule_name', 'source', 'percentage')
+        help_texts = {
+            'source': "O 'source' exato da tabela de Vendas (ex: Rovema Pay, Bionio, ELIQ).",
+            'percentage': "O valor da percentagem (ex: 10.5 para 10.5%).",
+        }
+# --- (FIM DA NOVA FUNCIONALIDADE) ---

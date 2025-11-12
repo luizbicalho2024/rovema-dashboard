@@ -26,6 +26,19 @@
         font-weight: 600;
         margin: 10px 0 0;
     }
+    
+    .card-inativos .table {
+        margin-bottom: 0; 
+    }
+    
+    /* (NOVO) Cor verde para o KPI de comissão */
+    .kpi-commission .h2 {
+        color: var(--bs-success) !important;
+    }
+    /* No modo escuro, usamos um verde mais claro */
+    [data-bs-theme="dark"] .kpi-commission .h2 {
+        color: #20c997 !important; 
+    }
 </style>
 {% endblock %}
 
@@ -54,7 +67,7 @@
     </div>
 
     <div class="row">
-        <div class="col-xl-4 col-md-6 mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
             <div class="card shadow-sm h-100 kpi-card" title="Receita Líquida (Lucro) gerada no período selecionado.">
                 <div class="card-body">
                     <h6 class="text-uppercase text-muted small">Receita Líquida (Período)</h6>
@@ -62,7 +75,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-xl-4 col-md-6 mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
             <div class="card shadow-sm h-100 kpi-card" title="Número de clientes únicos que fizeram pelo menos uma compra no período.">
                 <div class="card-body">
                     <h6 class="text-uppercase text-muted small">Clientes Ativados (Período)</h6>
@@ -70,11 +83,20 @@
                 </div>
             </div>
         </div>
-        <div class="col-xl-4 col-md-6 mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
             <div class="card shadow-sm h-100 kpi-card" title="Número total de clientes na sua carteira (ou da sua equipa).">
                 <div class="card-body">
                     <h6 class="text-uppercase text-muted small">Total na Carteira</h6>
                     <span class="h2 fw-bold">{{ kpi_total_clients|localize }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card shadow-sm h-100 kpi-card kpi-commission" 
+                 title="Comissão estimada com base na Receita Líquida do MÊS DA DATA INICIAL ({{ meta_date_object|date:"F" }})">
+                <div class="card-body">
+                    <h6 class="text-uppercase text-muted small">Comissão ({{ meta_date_object|date:"F" }})</h6>
+                    <span class="h2 fw-bold">R$ {{ kpi_commission_mes|localize }}</span>
                 </div>
             </div>
         </div>
@@ -108,8 +130,8 @@
                                     <th>Consultor</th>
                                     <th>Meta</th>
                                     <th>Realizado</th>
-                                    <th class="text-end">% Atingido</th>
-                                </tr>
+                                    <th>% Atingido</th>
+                                    <th class="text-end">Comissão</th> </tr>
                             </thead>
                             <tbody>
                                 {% for consultor in performance_equipa %}
@@ -117,11 +139,10 @@
                                     <td>{{ consultor.first_name }} {{ consultor.last_name }}</td>
                                     <td>R$ {{ consultor.goal_month|localize }}</td>
                                     <td>R$ {{ consultor.revenue_month|localize }}</td>
-                                    <td class="text-end fw-bold">{{ consultor.percent_atingido|floatformat:1 }}%</td>
-                                </tr>
+                                    <td>{{ consultor.percent_atingido|floatformat:1 }}%</td>
+                                    <td class="text-end fw-bold">R$ {{ consultor.commission_total|localize }}</td> </tr>
                                 {% empty %}
-                                <tr><td colspan="4" class="text-center text-muted">Nenhum consultor na sua equipa.</td></tr>
-                                {% endfor %}
+                                <tr><td colspan="5" class="text-center text-muted">Nenhum consultor na sua equipa.</td></tr> {% endfor %}
                             </tbody>
                         </table>
                     </div>
@@ -157,7 +178,11 @@
                             <tbody>
                                 {% for cliente in clientes_performance %}
                                 <tr>
-                                    <td>{{ cliente.client_name }}</td>
+                                    <td>
+                                        <a href="{% url 'client_detail' cliente.cnpj %}">
+                                            {{ cliente.client_name }}
+                                        </a>
+                                    </td>
                                     <td>{{ cliente.cnpj }}</td>
                                     <td class="text-end fw-bold">R$ {{ cliente.revenue_periodo|localize }}</td>
                                 </tr>
@@ -171,44 +196,125 @@
             </div>
         </div>
     </div>
+    
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="card shadow-sm card-inativos border-warning">
+                <div class="card-header bg-warning-subtle">
+                    <h5 class="card-title mb-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-exclamation-triangle-fill" viewBox="0 0 16 16" style="margin-top: -3px;">
+                          <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5m.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2"/>
+                        </svg>
+                        Alerta: Clientes Inativos (sem compra > {{ inactive_days }} dias)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if not clientes_inativos %}
+                        <p class="text-success fw-bold mb-0">🎉 Excelente! Nenhum cliente inativo encontrado na sua carteira.</p>
+                    {% else %}
+                    <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                        <table class="table table-hover table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Cliente</th>
+                                    <th>CNPJ</th>
+                                    {% if user.role == "manager" %}<th>Consultor</th>{% endif %}
+                                    <th class="text-end">Última Venda</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for cliente in clientes_inativos %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'client_detail' cliente.cnpj %}">
+                                            {{ cliente.client_name }}
+                                        </a>
+                                    </td>
+                                    <td>{{ cliente.cnpj }}</td>
+                                    {% if user.role == "manager" %}
+                                        <td>{{ cliente.consultant.first_name|default:"N/A" }}</td>
+                                    {% endif %}
+                                    <td class="text-end">
+                                        {% if cliente.last_sale_date %}
+                                            {{ cliente.last_sale_date|date:"d/m/Y" }}
+                                        {% else %}
+                                            <span class="text-danger fw-bold">Nunca comprou</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
 {% endblock %}
 
 {% block extra_js %}
 <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
 <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
 <script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/themes/Dark.js"></script>
 
 <script>
     var lineChartData = JSON.parse('{{ line_chart_json|safe }}');
+    var lineChartRoot = null;
+
+    function applyLineTheme(theme) {
+        if (!lineChartRoot) return;
+
+        var themes = [am5themes_Animated.new(lineChartRoot)];
+        if (theme === 'dark') {
+            themes.push(am5themes_Dark.new(lineChartRoot));
+            lineChartRoot.interfaceColors.set("text", am5.color(0xdee2e6));
+            lineChartRoot.interfaceColors.set("grid", am5.color(0x495057));
+        } else {
+            lineChartRoot.interfaceColors.set("text", am5.color(0x000000));
+            lineChartRoot.interfaceColors.set("grid", am5.color(0xdee2e6));
+        }
+        lineChartRoot.setThemes(themes);
+    }
+
+    window.addEventListener('themeChanged', function(e) {
+        applyLineTheme(e.detail.theme);
+    });
+
     am5.ready(function() {
-        var root = am5.Root.new("lineChart");
-        root.setThemes([ am5themes_Animated.new(root) ]);
-        root.numberFormatter.set("numberFormat", "R$ #,###.00");
-        var chart = root.container.children.push(am5xy.XYChart.new(root, {
+        lineChartRoot = am5.Root.new("lineChart");
+        
+        var currentTheme = document.documentElement.getAttribute('data-bs-theme');
+        applyLineTheme(currentTheme);
+        
+        lineChartRoot.numberFormatter.set("numberFormat", "R$ #,###.00");
+        var chart = lineChartRoot.container.children.push(am5xy.XYChart.new(lineChartRoot, {
             panX: false, panY: false, wheelX: "none", wheelY: "none"
         }));
-        var cursor = chart.set("cursor", am5xy.XYCursor.new(root, {}));
+        var cursor = chart.set("cursor", am5xy.XYCursor.new(lineChartRoot, {}));
         cursor.lineY.set("visible", false);
-        var xAxis = chart.xAxes.push(am5xy.DateAxis.new(root, {
+        var xAxis = chart.xAxes.push(am5xy.DateAxis.new(lineChartRoot, {
             baseInterval: { timeUnit: "month", count: 1 },
-            renderer: am5xy.AxisRendererX.new(root, {}),
-            tooltip: am5.Tooltip.new(root, {})
+            renderer: am5xy.AxisRendererX.new(lineChartRoot, {}),
+            tooltip: am5.Tooltip.new(lineChartRoot, {})
         }));
-        var yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
-            renderer: am5xy.AxisRendererY.new(root, {}),
-            tooltip: am5.Tooltip.new(root, {})
+        var yAxis = chart.yAxes.push(am5xy.ValueAxis.new(lineChartRoot, {
+            renderer: am5xy.AxisRendererY.new(lineChartRoot, {}),
+            tooltip: am5.Tooltip.new(lineChartRoot, {})
         }));
-        var series = chart.series.push(am5xy.LineSeries.new(root, {
+        var series = chart.series.push(am5xy.LineSeries.new(lineChartRoot, {
             name: "Receita", xAxis: xAxis, yAxis: yAxis,
             valueYField: "revenue", valueXField: "date",
-            tooltip: am5.Tooltip.new(root, { labelText: "{valueY}" })
+            tooltip: am5.Tooltip.new(lineChartRoot, { labelText: "{valueY}" })
         }));
         series.strokes.template.setAll({
             strokeColor: am5.color(0x0068C9), strokeWidth: 3
         });
         series.fills.template.setAll({
             fillOpacity: 0.1, visible: true,
-            fillPattern: am5.LinearGradient.new(root, {
+            fillPattern: am5.LinearGradient.new(lineChartRoot, {
                 stops: [
                     { color: am5.color(0x0068C9), opacity: 0.5 },
                     { color: am5.color(0x0068C9), opacity: 0 }
@@ -216,14 +322,14 @@
                 rotation: 90
             })
         });
-        series.data.processor = am5.DataProcessor.new(root, {
+        series.data.processor = am5.DataProcessor.new(lineChartRoot, {
             dateFields: ["date"], dateFormat: "yyyy-MM-dd"
         });
         series.bullets.push(function() {
-            return am5.Bullet.new(root, {
-                sprite: am5.Circle.new(root, {
+            return am5.Bullet.new(lineChartRoot, {
+                sprite: am5.Circle.new(lineChartRoot, {
                     radius: 5, fill: series.get("fill"),
-                    stroke: root.interfaceColors.get("background"), strokeWidth: 2
+                    stroke: lineChartRoot.interfaceColors.get("background"), strokeWidth: 2
                 })
             });
         });

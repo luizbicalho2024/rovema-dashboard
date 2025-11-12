@@ -1,0 +1,65 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+{% load l10n %}
+
+{% block title %}Gestão de Comissões - Rovema{% endblock %}
+
+{% block extra_css %}
+<style>
+    .action-links a {
+        font-weight: 600;
+        text-decoration: none;
+        margin-right: 15px;
+    }
+    .action-links a.delete-link {
+        color: var(--bs-danger);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h1 class="h3 mb-0">Gestão de Regras de Comissão</h1>
+                <p class="text-muted mb-0">Crie e edite as percentagens de comissão por fonte.</p>
+            </div>
+            <a href="{% url 'commission_create' %}" class="btn btn-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-plus-lg" viewBox="0 0 16 16">
+                  <path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2z"/>
+                </svg>
+                Criar Nova Regra
+            </a>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table table-hover interactive-datatable" style="width:100%">
+                <thead>
+                    <tr>
+                        <th>Nome da Regra</th>
+                        <th>Fonte (Source)</th>
+                        <th class="text-end">Percentagem (%)</th>
+                        <th data-orderable="false" class="text-end">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rule in rules %}
+                    <tr>
+                        <td>{{ rule.rule_name }}</td>
+                        <td>{{ rule.source }}</td>
+                        <td class="text-end fw-bold">{{ rule.percentage|floatformat:2 }}%</td>
+                        <td class="action-links text-end">
+                            <a href="{% url 'commission_update' rule.pk %}" class="link-primary">Editar</a>
+                            <a href="{% url 'commission_delete' rule.pk %}" class="delete-link">Eliminar</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" class="text-center text-muted p-4">Nenhuma regra de comissão encontrada.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
