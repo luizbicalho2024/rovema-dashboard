@@ -123,7 +123,8 @@ def api_dashboard_geral_data(request):
         .annotate(revenue=Sum('revenue_net'))
         .order_by('-revenue')
     )
-    pie_chart_data = list(sales_by_source)
+    # (CORREÇÃO) Converte 'revenue' (Decimal) para float()
+    pie_chart_data = [{"source": item['source'], "revenue": float(item['revenue'])} for item in sales_by_source]
     
     clients_performance = (
         queryset_periodo
@@ -132,8 +133,15 @@ def api_dashboard_geral_data(request):
         .order_by('-total_tpv')
     )
     
-    top_5_clients = list(clients_performance[:5])
-    bottom_5_clients = list(clients_performance.filter(total_tpv__gt=0).order_by('total_tpv')[:5])
+    # (CORREÇÃO) Converte 'total_tpv' (Decimal) para float()
+    top_5_clients = [
+        {"raw_client_name": c['raw_client_name'], "total_tpv": float(c['total_tpv'])} 
+        for c in clients_performance[:5]
+    ]
+    bottom_5_clients = [
+        {"raw_client_name": c['raw_client_name'], "total_tpv": float(c['total_tpv'])} 
+        for c in clients_performance.filter(total_tpv__gt=0).order_by('total_tpv')[:5]
+    ]
 
     # --- 4. CONSULTA PARA O GRÁFICO DE LINHA (Últimos 12 meses) ---
     twelve_months_ago = today - timedelta(days=365)
@@ -151,14 +159,16 @@ def api_dashboard_geral_data(request):
         .annotate(tpv=Sum('revenue_gross'))
         .order_by('month')
     )
-    line_chart_data = [{"date": item['month'].isoformat(), "volume": item['tpv']} for item in trend_data]
+    # (CORREÇÃO) Converte 'tpv' (Decimal) para float()
+    line_chart_data = [{"date": item['month'].isoformat(), "volume": float(item['tpv'])} for item in trend_data]
 
     # --- 5. PREPARA A RESPOSTA JSON ---
     data = {
         'kpis': {
-            'kpi_tpv': kpi_tpv,
-            'kpi_net': kpi_net,
-            'kpi_margin': kpi_margin,
+            # (CORREÇÃO) Converte KPIs (Decimal) para float()
+            'kpi_tpv': float(kpi_tpv),
+            'kpi_net': float(kpi_net),
+            'kpi_margin': float(kpi_margin),
             'kpi_total_sales': kpis['total_sales'],
         },
         'charts': {
@@ -175,8 +185,8 @@ def api_dashboard_geral_data(request):
         }
     }
     
-    # Usa o DecimalEncoder customizado para formatar os Decimals
-    return JsonResponse(data, encoder=DecimalEncoder)
+    # (NOTA) Usamos JsonResponse normal. O float() já resolve o problema do DecimalEncoder.
+    return JsonResponse(data)
 
 
 # ---
@@ -344,7 +354,8 @@ def minha_carteira(request):
         .annotate(revenue=Sum('revenue_net'))
         .order_by('month')
     )
-    line_chart_data = [{"date": item['month'].isoformat(), "revenue": item['revenue']} for item in trend_data]
+    # (CORREÇÃO) Converte 'revenue' (Decimal) para float()
+    line_chart_data = [{"date": item['month'].isoformat(), "revenue": float(item['revenue'])} for item in trend_data]
 
     # --- 5. ENVIA OS DADOS PARA O TEMPLATE ---
     context = {
@@ -411,9 +422,11 @@ def atribuir_clientes(request):
 
     consultores_list = User.objects.filter(role=User.Role.CONSULTANT).order_by('first_name')
     vendas_orfas = Sale.objects.filter(consultant__isnull=True)
+    
+    # (CORREÇÃO) Agrupa também por 'source' para exibir o produto
     clientes_orfaos = (
         vendas_orfas
-        .values('raw_client_cnpj', 'raw_client_name')
+        .values('raw_client_cnpj', 'raw_client_name', 'source')
         .annotate(total_revenue=Sum('revenue_net'), last_sale=Max('date'))
         .order_by('-last_sale')
     )
@@ -440,7 +453,9 @@ def gestao_metas(request):
                     if key.startswith('meta_'):
                         user_id = key.split('_')[1]
                         try:
-                            target_value = Decimal(value if value else '0.0')
+                            # (CORREÇÃO) Garante que a vírgula seja tratada
+                            value_str = value.replace(',', '.') if value else '0.0'
+                            target_value = Decimal(value_str)
                         except InvalidOperation:
                             raise Exception(f"Valor inválido '{value}' para o utilizador ID {user_id}")
 
@@ -696,8 +711,10 @@ def client_detail(request, cnpj):
         )
         .order_by('month')
     )
+    
+    # (CORREÇÃO) Converte Decimals para float()
     line_chart_data = [
-        {"date": item['month'].isoformat(), "tpv": item['tpv'], "net": item['net']} 
+        {"date": item['month'].isoformat(), "tpv": float(item['tpv']), "net": float(item['net'])} 
         for item in trend_data
     ]
     

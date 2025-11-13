@@ -2,6 +2,7 @@ import pandas as pd
 from datetime import datetime
 from decimal import Decimal
 import sys
+import os # (NOVO - CORREÇÃO DO BUG)
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
@@ -78,6 +79,7 @@ class Command(BaseCommand):
 
                 try:
                     naive_datetime = datetime.strptime(row['Data do pagamento do pedido'], "%d/%m/%Y")
+                    # (CORREÇÃO - Naive Datetime)
                     data_pagamento = timezone.make_aware(naive_datetime, timezone.get_default_timezone())
                 except: continue 
 
