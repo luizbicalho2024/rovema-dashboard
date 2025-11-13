@@ -80,7 +80,7 @@
                                             step="0.01" 
                                             class="form-control form-control-sm meta-input d-inline-block"
                                             name="meta_{{ data.consultant.id }}" 
-                                            value="{{ data.meta }}" placeholder="0.00"
+                                            value="{{ data.meta|floatformat:2 }}" placeholder="0.00"
                                         >
                                         {% if data.goal_id %}
                                         <a href="{% url 'eliminar_meta' data.goal_id %}" class="btn btn-sm btn-outline-danger" title="Eliminar esta meta"

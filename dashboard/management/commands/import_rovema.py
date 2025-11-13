@@ -2,12 +2,11 @@ import pandas as pd
 from datetime import datetime
 from decimal import Decimal
 import sys
-import os # (NOVO)
+import os 
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
-# (NOVO) Importa os modelos de Log e User
 from dashboard.models import User, Client, Sale, AuditLog
 
 def clean_value(value_str):
@@ -32,7 +31,6 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('csv_file', type=str, help='O caminho para o arquivo RovemaPay.csv')
-        # (NOVO) Argumento para saber QUEM iniciou
         parser.add_argument('--user-id', type=int, help='ID do utilizador que iniciou a ação', default=None)
 
     @transaction.atomic
@@ -48,13 +46,11 @@ class Command(BaseCommand):
         log_details = {"file_type": "rovema", "filename": os.path.basename(file_path)}
 
         try:
-            # --- 1. Pré-carrega mapas ---
             self.stdout.write("Carregando mapa de clientes e consultores...")
             client_map = {c.cnpj: c for c in Client.objects.all()}
             user_map = {u: u.manager for u in User.objects.filter(role=User.Role.CONSULTANT)}
             cnpj_to_consultant = {c.cnpj: c.consultant for c in Client.objects.all() if c.consultant}
 
-            # --- 2. Leitura do CSV ---
             try:
                 df = pd.read_csv(
                     file_path, sep=';', dtype=str, encoding='latin-1'
@@ -67,7 +63,6 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING("Nenhum registro de venda válida encontrado."))
                 return
             
-            # --- 3. Processamento ---
             sales_to_process = {}
             total_rows = len(df_paid)
             orphans_found = 0
@@ -102,7 +97,6 @@ class Command(BaseCommand):
                 )
                 sales_to_process[doc_id] = sale
             
-            # --- 4. Salva no Banco de Dados ---
             final_sales_list = list(sales_to_process.values())
             self.stdout.write(f"Processamento concluído. {len(final_sales_list)} vendas ÚNICAS prontas para salvar.")
             
@@ -114,7 +108,6 @@ class Command(BaseCommand):
                                'revenue_net', 'product_name', 'product_detail', 'status']
             )
             
-            # (NOVO) Regista o SUCESSO no log
             log_details.update({
                 "status": "Sucesso",
                 "rows_found": len(df),
@@ -126,8 +119,18 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(f"Importação Rovema Pay concluída! {len(final_sales_list)} registros salvos."))
 
         except Exception as e:
-            # (NOVO) Regista a FALHA no log
             self.stdout.write(self.style.ERROR(f"Erro durante a importação: {e}"))
             log_details.update({"status": "Falha", "error": str(e)})
             AuditLog.objects.create(user=user, action="falha_carga_csv", details=log_details)
             sys.exit(1)
+
+        # --- (INÍCIO DA CORREÇÃO) ---
+        finally:
+            # Garante que o ficheiro temporário é apagado
+            try:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                    self.stdout.write(self.style.SUCCESS(f"Ficheiro temporário {file_path} eliminado."))
+            except Exception as e:
+                self.stdout.write(self.style.WARNING(f"Não foi possível eliminar o ficheiro temporário {file_path}: {e}"))
+        # --- (FIM DA CORREÇÃO) ---

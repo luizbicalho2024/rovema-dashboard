@@ -17,27 +17,24 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 
-# --- (INÍCIO DA CORREÇÃO) ---
+# Importações necessárias para servir Static e Media files em desenvolvimento
 from django.conf import settings
 from django.conf.urls.static import static
-# --- (FIM DA CORREÇÃO) ---
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     
-    # Adiciona as URLs de login, logout, etc.
-    # Elas estarão em /accounts/login/, /accounts/logout/
+    # URLs do sistema de autenticação do Django (login, logout, etc.)
     path('accounts/', include('django.contrib.auth.urls')),
     
-    # Envia qualquer outra URL (como "/") para ser tratada
-    # pelo nosso app "dashboard"
+    # Roteia todas as outras URLs para a aplicação dashboard
     path('', include('dashboard.urls')),
 ]
 
-# --- (INÍCIO DA CORREÇÃO) ---
-# Adiciona o 'servidor' de arquivos estáticos APENAS em modo DEBUG
+# Configuração para servir Static e Media files *apenas* durante o desenvolvimento (DEBUG=True)
 if settings.DEBUG:
+    # Serve arquivos estáticos (CSS, JS, o seu logo)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-    # (Opcional, mas recomendado) Adiciona o 'servidor' de arquivos de media (uploads)
-    # urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-# --- (FIM DA CORREÇÃO) ---
+    
+    # Serve arquivos de Mídia (uploads, como os temporários da Carga de Dados)
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -33,7 +33,8 @@
                     <tr>
                         <th>Cliente</th>
                         <th>CNPJ</th>
-                        <th>Produto (Fonte)</th> <th>Receita Órfã</th>
+                        <th>Produto (Fonte)</th> 
+                        <th>Receita Órfã</th>
                         <th>Última Venda</th>
                         <th>Atribuir ao Consultor</th>
                         <th data-orderable="false" class="text-end">Ação</th>
@@ -42,32 +43,38 @@
                 <tbody>
                     {% for cliente in clientes_orfaos %}
                     <tr>
-                        <form method="POST" action="{% url 'atribuir_clientes' %}">
-                            {% csrf_token %}
-                            
-                            <td>{{ cliente.raw_client_name }}</td>
-                            <td>{{ cliente.raw_client_cnpj }}</td>
-                            <td>{{ cliente.source }}</td> <td>R$ {{ cliente.total_revenue|localize }}</td>
-                            <td>{{ cliente.last_sale|date:"d/m/Y" }}</td>
-                            
-                            <input type="hidden" name="cnpj" value="{{ cliente.raw_client_cnpj }}">
-                            <input type="hidden" name="client_name" value="{{ cliente.raw_client_name }}">
-                            
-                            <td>
-                                <select name="consultor" class="form-select form-select-sm" required>
-                                    <option value="">Selecione...</option>
-                                    {% for consultor in consultores_list %}
-                                    <option value="{{ consultor.id }}">
-                                        {{ consultor.first_name }} {{ consultor.last_name }}
-                                    </option>
-                                    {% endfor %}
-                                </select>
-                            </td>
-                            
-                            <td class="text-end">
+                        <td>{{ cliente.raw_client_name }}</td>
+                        <td>{{ cliente.raw_client_cnpj }}</td>
+                        <td>{{ cliente.source }}</td> 
+                        <td>R$ {{ cliente.total_revenue|localize }}</td>
+                        <td>{{ cliente.last_sale|date:"d/m/Y" }}</td>
+                        
+                        <td>
+                            <select id="consultor-{{ cliente.raw_client_cnpj }}" 
+                                    class="form-select form-select-sm" 
+                                    required>
+                                <option value="">Selecione...</option>
+                                {% for consultor in consultores_list %}
+                                <option value="{{ consultor.id }}">
+                                    {{ consultor.first_name }} {{ consultor.last_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        
+                        <td class="text-end">
+                            <form method="POST" action="{% url 'atribuir_clientes' %}" 
+                                  onsubmit="return setConsultorId('{{ cliente.raw_client_cnpj }}');">
+                                {% csrf_token %}
+                                
+                                <input type="hidden" name="cnpj" value="{{ cliente.raw_client_cnpj }}">
+                                <input type="hidden" name="client_name" value="{{ cliente.raw_client_name }}">
+                                
+                                <input type="hidden" name="consultor" id="hidden-consultor-{{ cliente.raw_client_cnpj }}">
+                                
                                 <button type="submit" class="btn btn-primary btn-sm">Salvar</button>
-                            </td>
-                        </form>
+                            </form>
+                        </td>
                     </tr>
                     {% empty %}
                     <tr>
@@ -81,4 +88,25 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function setConsultorId(cnpj) {
+        // Pega o valor selecionado no select adjacente
+        const selectElement = document.getElementById('consultor-' + cnpj);
+        const selectedValue = selectElement.value;
+        
+        if (!selectedValue) {
+            alert("Por favor, selecione um consultor.");
+            return false;
+        }
+        
+        // Define o valor no campo oculto que será submetido
+        const hiddenInput = document.getElementById('hidden-consultor-' + cnpj);
+        hiddenInput.value = selectedValue;
+        
+        return true; // Continua com o submit
+    }
+</script>
 {% endblock %}

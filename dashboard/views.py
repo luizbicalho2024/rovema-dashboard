@@ -4,7 +4,9 @@ from django.urls import reverse_lazy
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum, Count, Q, Value, Max
 from django.db.models.functions import Coalesce, TruncMonth
-from django.db import transaction # Importação que faltava
+# (CORREÇÃO DEFINITIVA) Importa o StringAgg do módulo específico do PostgreSQL
+from django.contrib.postgres.aggregates import StringAgg 
+from django.db import transaction 
 from .decorators import role_required
 # Importações dos models
 from .models import Sale, Client, User, Goal, CommissionRule, AuditLog
@@ -23,18 +25,17 @@ from django.conf import settings
 from django.contrib import messages
 from django.core.files.storage import default_storage
 from django.core.exceptions import PermissionDenied
-from django.http import JsonResponse # (NOVO)
+from django.http import JsonResponse 
 
 
 class DecimalEncoder(json.JSONEncoder):
     def default(self, o):
         if isinstance(o, Decimal):
-            # (MODIFICADO) Formata os decimais para 2 casas, ideal para JSON
             return "{:.2f}".format(o)
         return super(DecimalEncoder, self).default(o)
 
 # ---
-# (MODIFICADO) View 1: Dashboard Geral (Apenas Carrega a Página)
+# View 1: Dashboard Geral
 # ---
 @login_required
 def dashboard_geral(request):
@@ -44,22 +45,16 @@ def dashboard_geral(request):
     Os dados (KPIs, gráficos) são carregados via API.
     """
     
-    # --- 1. LÓGICA DE FILTROS (Apenas para preencher os <select>) ---
     today = timezone.now().date()
     start_date = today.replace(day=1)
     end_date = today
 
-    # --- 2. BUSCAR DADOS PARA OS FILTROS ---
     all_consultants = User.objects.filter(role=User.Role.CONSULTANT).order_by('first_name')
     all_products = Sale.objects.values_list('source', flat=True).distinct()
 
-    # --- 5. ENVIA OS DADOS PARA O TEMPLATE ---
     context = {
-        # Valores iniciais para os filtros de data
         'current_start_date': start_date.isoformat(),
         'current_end_date': end_date.isoformat(),
-        
-        # Opções dos <select>
         'all_products': all_products,
         'all_consultants': all_consultants,
     }
@@ -68,7 +63,7 @@ def dashboard_geral(request):
 
 
 # ---
-# (NOVO) View 1.A: API de Dados do Dashboard Geral
+# View 1.A: API de Dados do Dashboard Geral
 # ---
 @login_required
 def api_dashboard_geral_data(request):
@@ -78,12 +73,11 @@ def api_dashboard_geral_data(request):
     Esta view é chamada pelo JavaScript sempre que um filtro é alterado.
     """
     
-    # --- 1. LÓGICA DE FILTROS (Lê os parâmetros da URL) ---
     today = timezone.now().date()
     start_date_str = request.GET.get('start_date', today.replace(day=1).isoformat())
     end_date_str = request.GET.get('end_date', today.isoformat())
-    selected_products = request.GET.getlist('products[]') # JS envia 'products[]'
-    selected_consultants = request.GET.getlist('consultants[]') # JS envia 'consultants[]'
+    selected_products = request.GET.getlist('products[]') 
+    selected_consultants = request.GET.getlist('consultants[]') 
 
     try:
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
@@ -91,8 +85,6 @@ def api_dashboard_geral_data(request):
     except ValueError:
         start_date = today.replace(day=1)
         end_date = today
-
-    # --- 3. CONSULTAS PARA O PERÍODO SELECIONADO ---
     
     queryset_periodo = Sale.objects.filter(
         date__date__gte=start_date,
@@ -123,17 +115,15 @@ def api_dashboard_geral_data(request):
         .annotate(revenue=Sum('revenue_net'))
         .order_by('-revenue')
     )
-    # (CORREÇÃO) Converte 'revenue' (Decimal) para float()
     pie_chart_data = [{"source": item['source'], "revenue": float(item['revenue'])} for item in sales_by_source]
     
     clients_performance = (
         queryset_periodo
-        .values('raw_client_cnpj', 'raw_client_name') # Agrupa por CNPJ/Nome
+        .values('raw_client_cnpj', 'raw_client_name') 
         .annotate(total_tpv=Sum('revenue_gross'))
         .order_by('-total_tpv')
     )
     
-    # (CORREÇÃO) Converte 'total_tpv' (Decimal) para float()
     top_5_clients = [
         {"raw_client_name": c['raw_client_name'], "total_tpv": float(c['total_tpv'])} 
         for c in clients_performance[:5]
@@ -143,7 +133,6 @@ def api_dashboard_geral_data(request):
         for c in clients_performance.filter(total_tpv__gt=0).order_by('total_tpv')[:5]
     ]
 
-    # --- 4. CONSULTA PARA O GRÁFICO DE LINHA (Últimos 12 meses) ---
     twelve_months_ago = today - timedelta(days=365)
     line_chart_qs = Sale.objects.filter(date__date__gte=twelve_months_ago)
     
@@ -159,13 +148,10 @@ def api_dashboard_geral_data(request):
         .annotate(tpv=Sum('revenue_gross'))
         .order_by('month')
     )
-    # (CORREÇÃO) Converte 'tpv' (Decimal) para float()
     line_chart_data = [{"date": item['month'].isoformat(), "volume": float(item['tpv'])} for item in trend_data]
 
-    # --- 5. PREPARA A RESPOSTA JSON ---
     data = {
         'kpis': {
-            # (CORREÇÃO) Converte KPIs (Decimal) para float()
             'kpi_tpv': float(kpi_tpv),
             'kpi_net': float(kpi_net),
             'kpi_margin': float(kpi_margin),
@@ -185,12 +171,11 @@ def api_dashboard_geral_data(request):
         }
     }
     
-    # (NOTA) Usamos JsonResponse normal. O float() já resolve o problema do DecimalEncoder.
     return JsonResponse(data)
 
 
 # ---
-# View 2: Minha Carteira (COM CÁLCULO DE COMISSÃO)
+# View 2: Minha Carteira
 # ---
 @login_required
 def minha_carteira(request):
@@ -198,7 +183,6 @@ def minha_carteira(request):
     user = request.user
     today = timezone.now().date()
     
-    # --- 1. LÓGICA DE FILTROS DE DATA ---
     start_date_str = request.GET.get('start_date', today.replace(day=1).isoformat())
     end_date_str = request.GET.get('end_date', today.isoformat())
     try:
@@ -211,18 +195,14 @@ def minha_carteira(request):
     meta_year = start_date.year
     meta_month = start_date.month
 
-    # --- (NOVO) Carrega o mapa de regras de comissão UMA VEZ ---
     rule_map = {r.source: r.percentage for r in CommissionRule.objects.all()}
 
-    # --- 2. LÓGICA DE FILTROS DE NÍVEL DE ACESSO ---
-    
     clientes_qs = Client.objects.none()
     vendas_periodo_qs = Sale.objects.none()
     vendas_mes_meta_qs = Sale.objects.none()
     meta_qs = Goal.objects.none()
     performance_equipa = []
     
-    # (NOVO) KPI de Comissão
     kpi_commission_mes = Decimal('0.0')
     
     twelve_months_ago = today - timedelta(days=365)
@@ -241,7 +221,6 @@ def minha_carteira(request):
         )
         line_chart_qs = line_chart_qs_base.filter(consultant=user)
         
-        # (NOVO) Calcula a comissão do consultor
         sales_by_source = vendas_mes_meta_qs.values('source').annotate(total_net=Sum('revenue_net'))
         for sale_group in sales_by_source:
             percentage = rule_map.get(sale_group['source'], Decimal('0.0'))
@@ -261,7 +240,6 @@ def minha_carteira(request):
             user_id__in=team_ids, year=meta_year, month=meta_month
         )
         
-        # Query de performance da equipa (Metas)
         performance_equipa = (
             User.objects.filter(id__in=team_ids)
             .annotate(
@@ -275,7 +253,6 @@ def minha_carteira(request):
             .order_by('-revenue_month')
         )
         
-        # (NOVO) Query ÚNICA para calcular a comissão da equipa inteira
         sales_by_source_team = (
             vendas_mes_meta_qs
             .values('consultant_id', 'source')
@@ -283,19 +260,16 @@ def minha_carteira(request):
             .order_by('consultant_id')
         )
         
-        # (NOVO) Processa as comissões num mapa
         commission_map = {}
         for sale_group in sales_by_source_team:
             consultant_id = sale_group['consultant_id']
             percentage = rule_map.get(sale_group['source'], Decimal('0.0'))
             commission = sale_group['total_net'] * (percentage / 100)
             
-            # Adiciona ao total de comissão do consultor
             if consultant_id not in commission_map:
                 commission_map[consultant_id] = Decimal('0.0')
             commission_map[consultant_id] += commission
 
-        # (NOVO) Adiciona os valores de comissão e % da meta à performance da equipa
         for consultor in performance_equipa:
             if consultor.goal_month > 0:
                 consultor.percent_atingido = (consultor.revenue_month / consultor.goal_month) * 100
@@ -303,11 +277,10 @@ def minha_carteira(request):
                 consultor.percent_atingido = Decimal(0)
             
             consultor.commission_total = commission_map.get(consultor.id, Decimal('0.0'))
-            kpi_commission_mes += consultor.commission_total # Soma para o KPI total do gestor
+            kpi_commission_mes += consultor.commission_total 
         
         line_chart_qs = line_chart_qs_base.filter(consultant_id__in=team_ids)
 
-    # --- 3. CÁLCULO DE KPIs ---
     kpi_revenue_periodo = vendas_periodo_qs.aggregate(
         total=Coalesce(Sum('revenue_net'), Decimal(0))
     )['total']
@@ -336,7 +309,6 @@ def minha_carteira(request):
         )
     ).order_by('-revenue_periodo')
     
-    # --- (NOVA FUNCIONALIDADE: ALERTA DE CHURN) ---
     inactive_days = 60
     inactive_threshold = today - timedelta(days=inactive_days)
     
@@ -346,7 +318,6 @@ def minha_carteira(request):
         Q(last_sale_date__lt=inactive_threshold) | Q(last_sale_date__isnull=True)
     ).order_by('last_sale_date')
     
-    # --- 4. PROCESSAMENTO DO GRÁFICO DE LINHA ---
     trend_data = (
         line_chart_qs
         .annotate(month=TruncMonth('date'))
@@ -354,10 +325,8 @@ def minha_carteira(request):
         .annotate(revenue=Sum('revenue_net'))
         .order_by('month')
     )
-    # (CORREÇÃO) Converte 'revenue' (Decimal) para float()
     line_chart_data = [{"date": item['month'].isoformat(), "revenue": float(item['revenue'])} for item in trend_data]
 
-    # --- 5. ENVIA OS DADOS PARA O TEMPLATE ---
     context = {
         'kpi_revenue_net': kpi_revenue_periodo,
         'kpi_total_sales': kpi_sales_periodo,
@@ -386,7 +355,7 @@ def minha_carteira(request):
 
 
 # ---
-# View 3: Atribuir Clientes (Feedback de Erro/Sucesso)
+# View 3: Atribuir Clientes (Corrigido)
 # ---
 @login_required
 @role_required(allowed_roles=[User.Role.ADMIN, User.Role.MANAGER])
@@ -423,19 +392,24 @@ def atribuir_clientes(request):
     consultores_list = User.objects.filter(role=User.Role.CONSULTANT).order_by('first_name')
     vendas_orfas = Sale.objects.filter(consultant__isnull=True)
     
-    # (CORREÇÃO) Agrupa também por 'source' para exibir o produto
+    # Esta query agora usa o StringAgg (importado corretamente)
     clientes_orfaos = (
         vendas_orfas
-        .values('raw_client_cnpj', 'raw_client_name', 'source')
-        .annotate(total_revenue=Sum('revenue_net'), last_sale=Max('date'))
+        .values('raw_client_cnpj', 'raw_client_name') # Agrupa por cliente
+        .annotate(
+            total_revenue=Sum('revenue_net'), 
+            last_sale=Max('date'),
+            sources=StringAgg('source', ', ', distinct=True) 
+        )
         .order_by('-last_sale')
     )
+    
     context = {'clientes_orfaos': clientes_orfaos, 'consultores_list': consultores_list}
     return render(request, 'dashboard/atribuir_clientes.html', context)
 
 
 # ---
-# View 4: Gestão de Metas
+# View 4: Gestão de Metas (Corrigido)
 # ---
 @login_required
 @role_required(allowed_roles=[User.Role.ADMIN, User.Role.MANAGER])
@@ -452,25 +426,36 @@ def gestao_metas(request):
                 for key, value in request.POST.items():
                     if key.startswith('meta_'):
                         user_id = key.split('_')[1]
+                        
                         try:
-                            # (CORREÇÃO) Garante que a vírgula seja tratada
-                            value_str = value.replace(',', '.') if value else '0.0'
+                            if not value:
+                                value_str = '0.0'
+                            else:
+                                # Remove . (milhar) e troca , (decimal) por .
+                                value_str = value.strip().replace('.', '').replace(',', '.')
+                            
                             target_value = Decimal(value_str)
+                            
                         except InvalidOperation:
-                            raise Exception(f"Valor inválido '{value}' para o utilizador ID {user_id}")
-
+                            messages.error(request, f"Valor inválido '{value}' para o utilizador ID {user_id}. Meta não foi salva.")
+                            continue 
+                        
                         if request.user.role == User.Role.ADMIN:
                             consultor_check = User.objects.filter(id=user_id).exists()
                         else:
                             consultor_check = User.objects.filter(id=user_id, manager=request.user).exists()
 
                         if consultor_check:
-                            Goal.objects.update_or_create(
-                                user_id=user_id,
-                                year=year,
-                                month=month,
-                                defaults={'target_value': target_value}
-                            )
+                            if target_value > 0:
+                                Goal.objects.update_or_create(
+                                    user_id=user_id,
+                                    year=year,
+                                    month=month,
+                                    defaults={'target_value': target_value}
+                                )
+                            else:
+                                # Apaga a meta se o valor for 0 ou vazio
+                                Goal.objects.filter(user_id=user_id, year=year, month=month).delete()
             
             messages.success(request, 'Metas salvas com sucesso!')
         
@@ -562,7 +547,7 @@ def eliminar_meta(request, goal_id):
 
 
 # ---
-# View 7: Carga de Dados (COM CORREÇÃO DO USER_ID)
+# View 7: Carga de Dados
 # ---
 @login_required
 @role_required(allowed_roles=[User.Role.ADMIN, User.Role.MANAGER])
@@ -659,7 +644,7 @@ def carga_dados(request):
 
 
 # ---
-# View 8: Detalhe do Cliente (Visão 360)
+# View 8: Detalhe do Cliente
 # ---
 @login_required
 def client_detail(request, cnpj):
@@ -712,7 +697,6 @@ def client_detail(request, cnpj):
         .order_by('month')
     )
     
-    # (CORREÇÃO) Converte Decimals para float()
     line_chart_data = [
         {"date": item['month'].isoformat(), "tpv": float(item['tpv']), "net": float(item['net'])} 
         for item in trend_data

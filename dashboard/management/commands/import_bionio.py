@@ -2,13 +2,14 @@ import pandas as pd
 from datetime import datetime
 from decimal import Decimal
 import sys
-import os # (NOVO - CORREÇÃO DO BUG)
+import os 
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from django.utils import timezone
+from django.utils import timezone # <--- ESTE IMPORT É CRUCIAL
 # (NOVO) Importa os modelos de Log e User
 from dashboard.models import User, Client, Sale, AuditLog
+# ... (restante do código)
 
 def clean_value(value_str):
     if pd.isna(value_str): return Decimal('0.0')
@@ -80,6 +81,7 @@ class Command(BaseCommand):
                 try:
                     naive_datetime = datetime.strptime(row['Data do pagamento do pedido'], "%d/%m/%Y")
                     # (CORREÇÃO - Naive Datetime)
+                    # CORREÇÃO: Esta linha exige o import de timezone
                     data_pagamento = timezone.make_aware(naive_datetime, timezone.get_default_timezone())
                 except: continue 
 
